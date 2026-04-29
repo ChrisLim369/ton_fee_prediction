@@ -140,12 +140,27 @@ npm run check:netlify
 /forecast
 /status
 /besttime
+/timezone
 /model
 /compare
 /backtest
 /quality
 /charts
 ```
+
+## Timezone Display
+
+Telegram does not include the user's exact device timezone in normal bot messages. The bot now estimates the display timezone from Telegram `language_code` when it can, for example Korean users are shown `Asia/Seoul`, and falls back to UTC when it cannot infer a reliable timezone.
+
+Users can override the timezone per command with an IANA timezone name:
+
+```text
+/forecast Asia/Seoul
+/besttime America/New_York
+/status Europe/London
+```
+
+Use `/timezone` to see the current detected timezone and override examples. Stored forecast files remain in UTC; only the Telegram display text is converted.
 
 ## File Roles
 
@@ -183,11 +198,13 @@ Automation:
 
 `/summary` shows the data size, feature range, latest raw transaction timestamp, current best model, forecast availability, and the sampled-coverage limitation.
 
-`/forecast` shows the next 24 saved forecast rows with UTC forecast hour, predicted average fee in nanoton, predicted fee in TON, model name, forecast generation time, forecast range, latest feature hour, latest raw transaction timestamp, forecast age, and a stale/fresh warning.
+`/forecast` shows the next 24 saved forecast rows with the display timezone, predicted average fee in nanoton, predicted fee in TON, model name, forecast generation time, forecast range, latest feature hour, latest raw transaction timestamp, forecast age, and a stale/fresh warning.
 
 `/status` shows the automated refresh state, last data update time, forecast generation time, forecast age, latest feature hour, latest raw transaction timestamp, recent CI raw sample size, known full raw row count, and stale/fresh status.
 
 `/besttime` finds the lowest predicted average fee in `predictions.csv`, compares it with the highest predicted fee in the same forecast window, and explains that the result is directional rather than guaranteed.
+
+`/timezone` explains timezone detection and shows examples for overriding the displayed timezone.
 
 `/model` shows the best saved model, R2, MAE, RMSE, baseline R2, and R2 improvement. It also explains the metrics in practical language.
 

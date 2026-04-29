@@ -287,11 +287,29 @@ python3 src/telegram_bot.py --validate
 /forecast
 /status
 /besttime
+/timezone
 /model
 /compare
 /backtest
 /quality
 /charts
+```
+
+시간대 표시:
+
+```text
+Telegram bot message에는 사용자의 정확한 기기 시간대가 포함되지 않습니다.
+봇은 Telegram language_code로 가능한 시간대를 추정합니다.
+예: 한국어 사용자는 Asia/Seoul로 표시됩니다.
+추정이 어려우면 UTC로 표시합니다.
+
+사용자는 명령어 뒤에 IANA timezone을 붙여 표시 시간대를 직접 지정할 수 있습니다.
+/forecast Asia/Seoul
+/besttime America/New_York
+/status Europe/London
+
+/timezone 명령어로 현재 감지된 시간대와 override 예시를 확인할 수 있습니다.
+저장된 predictions.csv 자체는 UTC 기준이고, Telegram 표시 텍스트만 변환됩니다.
 ```
 
 자세한 설명은 `docs/telegram_bot.md`를 참고하세요. Telegram bot token은 환경변수에서만 읽고 코드나 문서에 저장하지 마세요.

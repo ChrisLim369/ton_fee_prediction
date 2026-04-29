@@ -13,6 +13,7 @@ type CsvRow = Record<string, string>;
 type JsonObject = Record<string, unknown>;
 type TelegramMessage = {
   chat?: { id?: number | string };
+  from?: { language_code?: string };
   text?: string;
 };
 type TelegramUpdate = {
@@ -20,6 +21,26 @@ type TelegramUpdate = {
 };
 
 const FORECAST_STALE_HOURS = 6;
+const LANGUAGE_TIMEZONE_MAP: Record<string, string> = {
+  ko: "Asia/Seoul",
+  ja: "Asia/Tokyo",
+  zh: "Asia/Shanghai",
+  "zh-cn": "Asia/Shanghai",
+  "zh-hans": "Asia/Shanghai",
+  "zh-tw": "Asia/Taipei",
+  "zh-hant": "Asia/Taipei",
+  ru: "Europe/Moscow",
+  uk: "Europe/Kyiv",
+  tr: "Europe/Istanbul",
+  "pt-br": "America/Sao_Paulo",
+  "es-mx": "America/Mexico_City",
+  "en-gb": "Europe/London",
+};
+
+type TimeContext = {
+  timezone: string;
+  source: string;
+};
 
 export default async (req: Request, context: Context) => {
   if (req.method === "GET") {
@@ -33,6 +54,7 @@ export default async (req: Request, context: Context) => {
         "/forecast",
         "/status",
         "/besttime",
+        "/timezone",
         "/model",
         "/compare",
         "/backtest",
@@ -98,6 +120,7 @@ class Dashboard {
     }
 
     const command = commandName(text);
+    const timeContext = resolveTimeContext(message);
     try {
       switch (command) {
         case "/start":
@@ -105,13 +128,15 @@ class Dashboard {
         case "/help":
           return this.help();
         case "/summary":
-          return await this.summary();
+          return await this.summary(timeContext);
         case "/forecast":
-          return await this.forecast();
+          return await this.forecast(timeContext);
         case "/status":
-          return await this.status();
+          return await this.status(timeContext);
         case "/besttime":
-          return await this.besttime();
+          return await this.besttime(timeContext);
+        case "/timezone":
+          return this.timezone(timeContext);
         case "/model":
           return await this.model();
         case "/compare":
@@ -119,7 +144,7 @@ class Dashboard {
         case "/backtest":
           return await this.backtest();
         case "/quality":
-          return await this.quality();
+          return await this.quality(timeContext);
         case "/charts":
           return await this.charts();
         default:
@@ -142,6 +167,8 @@ class Dashboard {
       "",
       "The bot shows saved project outputs only. It does not retrain models inside Telegram handlers.",
       "",
+      "Times are shown in the detected Telegram language timezone when possible. You can override with an IANA timezone, for example: /forecast Asia/Seoul",
+      "",
       commandList(),
     ].join("\n");
   }
@@ -157,7 +184,7 @@ class Dashboard {
     ].join("\n");
   }
 
-  async summary(): Promise<string> {
+  async summary(timeContext: TimeContext): Promise<string> {
     const metadata = await this.metadata();
     const hourly = await readCsvOverview(this.path("hourly_features.csv"));
     const predictions = await readCsvOverview(this.path("predictions.csv"));
@@ -167,23 +194,24 @@ class Dashboard {
       "Project Summary",
       "",
       "What it does: predicts the next-hour average TON transaction fee from hourly on-chain features.",
+      timeContextNote(timeContext),
       `Raw rows: ${formatCount(metadata.final_rows)}`,
       `Hourly feature rows: ${formatCount(hourly.rows)}`,
-      `Feature date range: ${formatTimestamp(hourly.first.hour)} to ${formatTimestamp(hourly.last.hour)}`,
-      `Latest raw transaction timestamp: ${formatTimestamp(metadata.latest_iso_utc)}`,
-      `Latest feature timestamp: ${formatTimestamp(hourly.last.hour)}`,
+      `Feature date range: ${formatTimestamp(hourly.first.hour, timeContext)} to ${formatTimestamp(hourly.last.hour, timeContext)}`,
+      `Latest raw transaction timestamp: ${formatTimestamp(metadata.latest_iso_utc, timeContext)}`,
+      `Latest feature timestamp: ${formatTimestamp(hourly.last.hour, timeContext)}`,
       `Best model: ${stringValue(metrics.best_model_name)}`,
       `Holdout R2: ${formatMetric(metrics.best_r2)}`,
       `Holdout MAE: ${formatNanoton(metrics.best_mae)}`,
       `Forecast rows: ${formatCount(predictions.rows)}`,
-      `Forecast range: ${formatTimestamp(predictions.first.forecast_hour)} to ${formatTimestamp(predictions.last.forecast_hour)}`,
-      `Forecast generated at: ${formatTimestamp(predictions.first.forecast_generated_at)}`,
+      `Forecast range: ${formatTimestamp(predictions.first.forecast_hour, timeContext)} to ${formatTimestamp(predictions.last.forecast_hour, timeContext)}`,
+      `Forecast generated at: ${formatTimestamp(predictions.first.forecast_generated_at, timeContext)}`,
       "",
       "Important limitation: some collection windows hit TON Center API page limits, so activity counts are sampled indicators rather than guaranteed full-chain volume.",
     ].join("\n");
   }
 
-  async forecast(): Promise<string> {
+  async forecast(timeContext: TimeContext): Promise<string> {
     const rows = sortByNumber(await readCsvRows(this.path("predictions.csv")), "horizon_hours", false);
     if (rows.length === 0) {
       throw new DashboardError("predictions.csv has no forecast rows.");
@@ -192,15 +220,16 @@ class Dashboard {
     const lines = [
       "Next 24-Hour Fee Forecast",
       "",
-      `Generated at: ${formatTimestamp(rows[0].forecast_generated_at)}`,
-      `Forecast range: ${formatTimestamp(rows[0].forecast_hour)} to ${formatTimestamp(rows[rows.length - 1].forecast_hour)}`,
-      `Latest feature hour: ${formatTimestamp((await readCsvOverview(this.path("hourly_features.csv"))).last.hour)}`,
-      `Latest raw transaction timestamp: ${formatTimestamp((await this.metadata()).latest_iso_utc)}`,
+      timeContextNote(timeContext),
+      `Generated at: ${formatTimestamp(rows[0].forecast_generated_at, timeContext)}`,
+      `Forecast range: ${formatTimestamp(rows[0].forecast_hour, timeContext)} to ${formatTimestamp(rows[rows.length - 1].forecast_hour, timeContext)}`,
+      `Latest feature hour: ${formatTimestamp((await readCsvOverview(this.path("hourly_features.csv"))).last.hour, timeContext)}`,
+      `Latest raw transaction timestamp: ${formatTimestamp((await this.metadata()).latest_iso_utc, timeContext)}`,
       `Forecast age: ${formatAgeHours(rows[0].forecast_generated_at)}`,
       `Freshness: ${freshnessStatus(rows[0].forecast_generated_at, rows[rows.length - 1].forecast_hour).label}`,
       `Model: ${stringValue(rows[0].model_name)}`,
       "",
-      "Each row is the predicted average transaction fee for that UTC hour.",
+      `Each row is the predicted average transaction fee for that hour in ${timeContext.timezone}.`,
       "",
     ];
 
@@ -208,7 +237,7 @@ class Dashboard {
       const predictedNanoton = toNumber(row.predicted_avg_total_fee);
       const predictedTon = toNumber(row.predicted_avg_total_fee_ton) ?? nanotonToTon(predictedNanoton);
       lines.push(
-        `h${String(toInteger(row.horizon_hours) ?? 0).padStart(2, "0")} ${formatHour(row.forecast_hour)} | ${formatNanoton(
+        `h${String(toInteger(row.horizon_hours) ?? 0).padStart(2, "0")} ${formatHour(row.forecast_hour, timeContext)} | ${formatNanoton(
           predictedNanoton,
         )} | ${formatTon(predictedTon)}`,
       );
@@ -228,7 +257,7 @@ class Dashboard {
     return lines.join("\n");
   }
 
-  async status(): Promise<string> {
+  async status(timeContext: TimeContext): Promise<string> {
     const metadata = await this.metadata();
     const hourly = await readCsvOverview(this.path("hourly_features.csv"));
     const predictions = await readCsvOverview(this.path("predictions.csv"));
@@ -239,13 +268,14 @@ class Dashboard {
     const lines = [
       "Forecast Refresh Status",
       "",
+      timeContextNote(timeContext),
       `Automation mode: ${stringValue(metadata.automation_mode) === "n/a" ? "manual/local output" : stringValue(metadata.automation_mode)}`,
-      `Last data update finished: ${formatTimestamp(metadata.update_finished_at_utc)}`,
-      `Forecast generated at: ${formatTimestamp(forecastGenerated)}`,
+      `Last data update finished: ${formatTimestamp(metadata.update_finished_at_utc, timeContext)}`,
+      `Forecast generated at: ${formatTimestamp(forecastGenerated, timeContext)}`,
       `Forecast age: ${formatAgeHours(forecastGenerated)}`,
-      `Forecast range: ${formatTimestamp(predictions.first.forecast_hour)} to ${formatTimestamp(forecastEnd)}`,
-      `Latest feature hour: ${formatTimestamp(hourly.last.hour)}`,
-      `Latest raw transaction timestamp: ${formatTimestamp(metadata.latest_iso_utc)}`,
+      `Forecast range: ${formatTimestamp(predictions.first.forecast_hour, timeContext)} to ${formatTimestamp(forecastEnd, timeContext)}`,
+      `Latest feature hour: ${formatTimestamp(hourly.last.hour, timeContext)}`,
+      `Latest raw transaction timestamp: ${formatTimestamp(metadata.latest_iso_utc, timeContext)}`,
       `Recent raw rows collected by automation: ${formatCount(metadata.recent_raw_rows_collected)}`,
       `Known full raw rows: ${formatCount(metadata.final_rows)}`,
       `Freshness: ${freshness.label}`,
@@ -258,7 +288,7 @@ class Dashboard {
     return lines.join("\n");
   }
 
-  async besttime(): Promise<string> {
+  async besttime(timeContext: TimeContext): Promise<string> {
     const rows = await readCsvRows(this.path("predictions.csv"));
     const numericRows = rows
       .map((row) => ({ row, fee: toNumber(row.predicted_avg_total_fee) }))
@@ -276,14 +306,32 @@ class Dashboard {
     return [
       "Best Predicted Time Window",
       "",
-      `Cheapest predicted hour: ${formatTimestamp(cheapest.row.forecast_hour)}`,
+      timeContextNote(timeContext),
+      `Cheapest predicted hour: ${formatTimestamp(cheapest.row.forecast_hour, timeContext)}`,
       `Predicted average fee: ${formatNanoton(cheapest.fee)} (${formatTon(nanotonToTon(cheapest.fee))})`,
-      `Highest predicted hour in window: ${formatTimestamp(highest.row.forecast_hour)}`,
+      `Highest predicted hour in window: ${formatTimestamp(highest.row.forecast_hour, timeContext)}`,
       `Difference vs highest predicted fee: ${formatNanoton(difference)} (${formatTon(nanotonToTon(difference))}, about ${percent.toFixed(
         1,
       )}% lower)`,
       "",
       "This is the model's estimated cheapest hour, but the model should be treated as a directional guide, not a guarantee. Actual network behavior can change quickly.",
+    ].join("\n");
+  }
+
+  timezone(timeContext: TimeContext): string {
+    return [
+      "Timezone Display",
+      "",
+      timeContextNote(timeContext),
+      "",
+      "Telegram messages do not include the user's exact device timezone. The bot estimates from Telegram language when possible and falls back to UTC when it cannot infer a reliable timezone.",
+      "",
+      "Override examples:",
+      "/forecast Asia/Seoul",
+      "/besttime America/New_York",
+      "/status Europe/London",
+      "",
+      "Use IANA timezone names such as Asia/Seoul, America/Los_Angeles, Europe/Paris, or UTC.",
     ].join("\n");
   }
 
@@ -378,17 +426,18 @@ class Dashboard {
     return lines.join("\n");
   }
 
-  async quality(): Promise<string> {
+  async quality(timeContext: TimeContext): Promise<string> {
     const metadata = await this.metadata();
     const hourly = await readCsvOverview(this.path("hourly_features.csv"));
 
     return [
       "Data Quality And Limitations",
       "",
+      timeContextNote(timeContext),
       `Raw rows from metadata: ${formatCount(metadata.final_rows)}`,
       `Hourly feature rows: ${formatCount(hourly.rows)}`,
-      `Feature range: ${formatTimestamp(hourly.first.hour)} to ${formatTimestamp(hourly.last.hour)}`,
-      `Latest raw transaction timestamp: ${formatTimestamp(metadata.latest_iso_utc)}`,
+      `Feature range: ${formatTimestamp(hourly.first.hour, timeContext)} to ${formatTimestamp(hourly.last.hour, timeContext)}`,
+      `Latest raw transaction timestamp: ${formatTimestamp(metadata.latest_iso_utc, timeContext)}`,
       "Duplicate policy: raw transactions are de-duplicated by hash + lt.",
       `API page-limit hits: ${formatCount(metadata.windows_with_limit_hits)} windows hit the configured page limit.`,
       `Collection page settings: limit=${formatCount(metadata.limit)}, max_pages_per_window=${formatCount(
@@ -597,16 +646,81 @@ function commandList(): string {
     "/forecast - Next 24-hour predicted average transaction fees",
     "/status - Forecast freshness and automated update status",
     "/besttime - Predicted cheapest hour in the forecast window",
+    "/timezone - Show timezone detection and override examples",
     "/model - Best model metrics and plain-language interpretation",
     "/compare - Top chronological holdout model results",
     "/backtest - Rolling backtest summary",
     "/quality - Data quality notes and limitations",
     "/charts - Available generated chart files and what they show",
+    "",
+    "Times are shown in the detected Telegram language timezone when possible.",
+    "You can override it by adding an IANA timezone, for example: /forecast Asia/Seoul",
   ].join("\n");
 }
 
 function commandName(text: string): string {
   return text.trim().split(/\s+/, 1)[0].toLowerCase().split("@", 1)[0];
+}
+
+function resolveTimeContext(message: TelegramMessage): TimeContext {
+  const override = timezoneFromCommand(message.text);
+  if (override) {
+    return override;
+  }
+
+  const language = message.from?.language_code;
+  if (language) {
+    const normalized = language.trim().toLowerCase().replace("_", "-");
+    const timezone = LANGUAGE_TIMEZONE_MAP[normalized] ?? LANGUAGE_TIMEZONE_MAP[normalized.split("-", 1)[0]];
+    if (timezone && isValidTimeZone(timezone)) {
+      return { timezone, source: `Telegram language ${language}` };
+    }
+  }
+
+  return { timezone: "UTC", source: "fallback" };
+}
+
+function timezoneFromCommand(text: string | undefined): TimeContext | null {
+  if (!text) {
+    return null;
+  }
+  const parts = text.trim().split(/\s+/, 2);
+  if (parts.length < 2) {
+    return null;
+  }
+  const aliases: Record<string, string> = {
+    UTC: "UTC",
+    GMT: "UTC",
+    KST: "Asia/Seoul",
+    JST: "Asia/Tokyo",
+    EST: "America/New_York",
+    EDT: "America/New_York",
+    CST: "America/Chicago",
+    CDT: "America/Chicago",
+    MST: "America/Denver",
+    MDT: "America/Denver",
+    PST: "America/Los_Angeles",
+    PDT: "America/Los_Angeles",
+  };
+  const requested = parts[1].trim();
+  const timezone = aliases[requested.toUpperCase()] ?? requested;
+  return isValidTimeZone(timezone) ? { timezone, source: "command override" } : null;
+}
+
+function isValidTimeZone(timezone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function timeContextNote(timeContext: TimeContext): string {
+  if (timeContext.source === "fallback") {
+    return "Time zone: UTC fallback. Telegram does not expose a user's exact timezone; add an IANA timezone to override, e.g. /forecast Asia/Seoul.";
+  }
+  return `Time zone: ${timeContext.timezone} (${timeContext.source}).`;
 }
 
 function sortByNumber(rows: CsvRow[], column: string, reverse: boolean): CsvRow[] {
@@ -705,24 +819,31 @@ function freshnessStatus(generatedAt: unknown, forecastEnd: unknown): { label: s
   };
 }
 
-function formatTimestamp(value: unknown): string {
+function formatTimestamp(value: unknown, timeContext: TimeContext = { timezone: "UTC", source: "fallback" }): string {
   const text = stringValue(value);
   if (text === "n/a") {
     return text;
   }
-  return text.endsWith("+00:00") ? `${text.slice(0, -6)}Z` : text;
+  const timestamp = parseTimestamp(value);
+  if (!timestamp) {
+    return text.endsWith("+00:00") ? `${text.slice(0, -6)}Z` : text;
+  }
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timeContext.timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+  })
+    .format(timestamp)
+    .replace(",", "");
 }
 
-function formatHour(value: unknown): string {
-  const text = stringValue(value);
-  if (text === "n/a") {
-    return text;
-  }
-  const cleaned = text.replace("T", " ");
-  if (cleaned.endsWith(":00Z")) {
-    return `${cleaned.slice(0, -4)} UTC`;
-  }
-  return cleaned.endsWith("Z") ? `${cleaned.slice(0, -1)} UTC` : cleaned;
+function formatHour(value: unknown, timeContext: TimeContext): string {
+  return formatTimestamp(value, timeContext);
 }
 
 function stringValue(value: unknown): string {
