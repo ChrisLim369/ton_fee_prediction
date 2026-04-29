@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Refresh lightweight forecast outputs without committing full raw history.
+"""Refresh forecast outputs without committing raw history.
 
-This script is intended for GitHub Actions. It collects a recent transaction
-window into an ignored temporary raw CSV, converts that window into hourly
-aggregates, merges those aggregates into the committed hourly history, and then
-regenerates the next-24-hour forecast.
+This script is intended for GitHub Actions. It can either collect a recent
+temporary raw window or update a restored persistent raw CSV from GitHub Actions
+cache, convert the available raw rows into hourly aggregates, merge those
+aggregates into the committed hourly history, and regenerate the next-24-hour
+forecast.
 
-It deliberately does not write or require the large local raw_transactions.csv.
+It deliberately keeps raw_transactions.csv ignored by Git.
 """
 
 from __future__ import annotations
@@ -54,7 +55,7 @@ def collect_recent_raw(args: argparse.Namespace, start_dt: datetime, end_dt: dat
     recent_raw_path = resolve_path(args.recent_raw)
     recent_status_path = resolve_path(args.recent_status)
 
-    if args.reset_recent_raw:
+    if args.reset_recent_raw and not args.use_raw_latest_state:
         recent_raw_path.unlink(missing_ok=True)
         recent_status_path.unlink(missing_ok=True)
 
@@ -64,9 +65,9 @@ def collect_recent_raw(args: argparse.Namespace, start_dt: datetime, end_dt: dat
         metadata=str(recent_status_path),
         base_url=args.base_url,
         api_key=args.api_key,
-        start_date=start_dt.isoformat(),
+        start_date=None if args.use_raw_latest_state else start_dt.isoformat(),
         end_date=end_dt.isoformat(),
-        bootstrap_days=args.lookback_hours / 24,
+        bootstrap_days=args.bootstrap_days,
         overlap_seconds=0,
         window_hours=args.window_hours,
         limit=args.limit,
@@ -133,7 +134,7 @@ def update_metadata(
     payload = {
         **collection_status,
         "status": "success",
-        "automation_mode": "recent_raw_merge",
+        "automation_mode": "persistent_raw_cache_merge" if args.use_raw_latest_state else "recent_raw_merge",
         "update_finished_at_utc": datetime.now(UTC).isoformat(),
         "recent_raw_path": str(resolve_path(args.recent_raw)),
         "recent_raw_rows_collected": merge_status["recent_raw_rows"],
@@ -147,13 +148,13 @@ def update_metadata(
         "previous_known_full_raw_rows": previous_full_rows,
         "final_rows": previous_full_rows or collection_status.get("final_rows"),
         "raw_rows_note": (
-            "GitHub Actions does not store the large raw_transactions.csv. "
-            "final_rows keeps the previous known full local raw row count when available; "
-            "recent_raw_rows_collected is the current CI refresh sample size."
+            "raw_transactions.csv is not committed to Git. In GitHub Actions-only mode, "
+            "the ignored raw CSV is restored from and saved back to the GitHub Actions cache "
+            "when available. If no cache exists, the workflow bootstraps a recent raw window."
         ),
         "note": (
-            "Automated refresh collected a recent temporary raw window, merged refreshed hourly "
-            "aggregates into the committed hourly_features.csv history, and regenerated predictions.csv. "
+            "Automated refresh updated the available raw transaction state, merged refreshed hourly "
+            "aggregates into hourly_features.csv history, and regenerated predictions.csv. "
             "Transaction count features remain sampled when TON Center page limits are reached."
         ),
     }
@@ -164,7 +165,7 @@ def update_metadata(
 
 
 def refresh(args: argparse.Namespace) -> dict[str, Any]:
-    if args.lookback_hours < 26:
+    if not args.use_raw_latest_state and args.lookback_hours < 26:
         raise ValueError("--lookback-hours must be at least 26 so 24-hour lag features can be recomputed.")
 
     end_dt = completed_utc_hour()
@@ -184,12 +185,13 @@ def refresh(args: argparse.Namespace) -> dict[str, Any]:
     )
     metadata = update_metadata(args, collection_status, merge_status, forecast_status)
 
-    if not args.keep_temp:
+    if not args.keep_temp and not args.preserve_raw:
         resolve_path(args.recent_raw).unlink(missing_ok=True)
         resolve_path(args.recent_status).unlink(missing_ok=True)
 
     return {
         "status": "success",
+        "raw_mode": "persistent_cache" if args.use_raw_latest_state else "recent_window",
         "lookback_hours": args.lookback_hours,
         "latest_feature_hour": metadata.get("latest_feature_hour"),
         "forecast_start": forecast_status.get("forecast_start"),
@@ -202,6 +204,12 @@ def refresh(args: argparse.Namespace) -> dict[str, Any]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lookback-hours", type=int, default=72)
+    parser.add_argument(
+        "--bootstrap-days",
+        type=int,
+        default=3,
+        help="Lookback used by update_data.py when the selected raw CSV does not exist.",
+    )
     parser.add_argument("--recent-raw", default=".automation_recent_raw_transactions.csv")
     parser.add_argument("--recent-status", default=".automation_recent_last_updated.json")
     parser.add_argument("--hourly-features", default="hourly_features.csv")
@@ -221,6 +229,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-retries", type=int, default=5)
     parser.add_argument("--stream", action="store_true")
     parser.add_argument("--keep-temp", action="store_true")
+    parser.add_argument(
+        "--preserve-raw",
+        action="store_true",
+        help="Keep the selected raw/status files after refresh, for GitHub Actions cache persistence.",
+    )
+    parser.add_argument(
+        "--use-raw-latest-state",
+        action="store_true",
+        help="Let update_data.py continue from the selected raw CSV latest timestamp instead of forcing a fixed recent window.",
+    )
     parser.add_argument("--reset-recent-raw", action="store_true", default=True)
     parser.add_argument("--verbose", action="store_true")
     return parser

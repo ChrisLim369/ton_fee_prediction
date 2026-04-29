@@ -7,9 +7,10 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
-  group: ton-forecast-refresh
+  group: ton-raw-data-refresh
   cancel-in-progress: false
 
 jobs:
@@ -34,15 +35,36 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Refresh recent data, hourly features, and forecast
+      - name: Restore raw transaction cache
+        id: raw-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: raw_transactions.csv
+          key: ton-raw-transactions-${{ github.run_id }}
+          restore-keys: |
+            ton-raw-transactions-
+
+      - name: Refresh raw data, hourly features, and forecast
         env:
           TONCENTER_API_KEY: ${{ secrets.TONCENTER_API_KEY }}
         run: |
           python src/refresh_forecast_outputs.py \
-            --lookback-hours 72 \
+            --recent-raw raw_transactions.csv \
+            --recent-status .automation_raw_last_updated.json \
+            --use-raw-latest-state \
+            --preserve-raw \
+            --bootstrap-days 3 \
             --limit 1000 \
             --max-pages-per-window 1 \
-            --workchain 0
+            --workchain 0 \
+            --stream
+
+      - name: Save raw transaction cache
+        uses: actions/cache/save@v4
+        if: success() && hashFiles('raw_transactions.csv') != ''
+        with:
+          path: raw_transactions.csv
+          key: ton-raw-transactions-${{ github.run_id }}
 
       - name: Regenerate charts
         run: python scripts/generate_charts.py

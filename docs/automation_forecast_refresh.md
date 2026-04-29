@@ -6,8 +6,10 @@ This document explains how the Telegram `/forecast` command gets refreshed witho
 
 ```text
 GitHub Actions schedule
--> collect recent TON transactions into ignored temporary raw CSV
--> merge recent hourly aggregates into committed hourly_features.csv
+-> restore ignored raw_transactions.csv from GitHub Actions cache
+-> update raw_transactions.csv incrementally
+-> save raw_transactions.csv back to GitHub Actions cache
+-> merge refreshed hourly aggregates into committed hourly_features.csv
 -> regenerate predictions.csv
 -> regenerate SVG charts
 -> commit lightweight outputs back to GitHub
@@ -29,10 +31,15 @@ Runs hourly and manually through `workflow_dispatch`. It executes:
 
 ```bash
 python src/refresh_forecast_outputs.py \
-  --lookback-hours 72 \
+  --recent-raw raw_transactions.csv \
+  --recent-status .automation_raw_last_updated.json \
+  --use-raw-latest-state \
+  --preserve-raw \
+  --bootstrap-days 3 \
   --limit 1000 \
   --max-pages-per-window 1 \
-  --workchain 0
+  --workchain 0 \
+  --stream
 python scripts/generate_charts.py
 ```
 
@@ -86,28 +93,50 @@ Both workflows use concurrency so overlapping runs do not write at the same time
 
 `raw_transactions.csv` is intentionally not committed because it is large and can grow quickly.
 
+In the GitHub Actions-only setup, the raw CSV is persisted through GitHub Actions cache:
+
+```text
+actions/cache/restore@v4
+-> raw_transactions.csv
+-> src/refresh_forecast_outputs.py updates it
+-> actions/cache/save@v4
+```
+
+The cache key starts with:
+
+```text
+ton-raw-transactions-
+```
+
+This keeps raw data out of Git commits while still letting scheduled runs continue from the previous raw state.
+
 The automated workflow uses:
 
 ```text
 src/refresh_forecast_outputs.py
 ```
 
-That script collects a recent temporary window into:
+When used without cache, the script can still collect a recent temporary window into:
 
 ```text
 .automation_recent_raw_transactions.csv
 .automation_recent_last_updated.json
 ```
 
-Those files are ignored by Git and removed after the refresh. The script then:
+Those files are ignored by Git and removed after the refresh. In cache mode, `raw_transactions.csv` is also ignored by Git but preserved for `actions/cache/save`.
 
-1. Builds hourly aggregates from the recent temporary raw data.
-2. Merges those rows into the existing committed `hourly_features.csv`.
-3. Recomputes lag, rolling, calendar, and target columns across the merged hourly history.
-4. Regenerates `predictions.csv` from `models/best_model.json`.
-5. Updates `last_updated.json` and `collection_metadata.json` with freshness fields.
+The script then:
 
-This means GitHub stores lightweight derived history, not the full raw transaction export. `final_rows` in metadata keeps the previous known full local raw row count when available, while `recent_raw_rows_collected` reports the current CI refresh sample size.
+1. Updates the available raw transaction state.
+2. Builds hourly aggregates from the available raw data.
+3. Merges those rows into the existing committed `hourly_features.csv`.
+4. Recomputes lag, rolling, calendar, and target columns across the merged hourly history.
+5. Regenerates `predictions.csv` from `models/best_model.json`.
+6. Updates `last_updated.json` and `collection_metadata.json` with freshness fields.
+
+The first Actions run may not have a raw cache yet. In that case the workflow bootstraps a recent 3-day raw window, merges it into the existing committed hourly history, then saves that raw file into the cache. Later runs restore and extend that cached raw file.
+
+GitHub Actions cache is useful for this low-cost setup, but it is not a durable database. Cache entries can be evicted when repository cache storage is full or when they age out. If that happens, the workflow will bootstrap again from recent data and preserve older derived history through `hourly_features.csv`.
 
 ## Netlify Redeploy
 
@@ -159,7 +188,7 @@ freshness status
 
 ## Manual Local Refresh
 
-Use this when you want to refresh lightweight outputs locally without uploading `raw_transactions.csv`:
+Use this when you want to refresh lightweight outputs locally without committing `raw_transactions.csv`:
 
 ```bash
 python3 src/refresh_forecast_outputs.py \
@@ -167,6 +196,22 @@ python3 src/refresh_forecast_outputs.py \
   --limit 1000 \
   --max-pages-per-window 1 \
   --workchain 0
+python3 scripts/generate_charts.py
+```
+
+Use this to mimic the GitHub Actions cache mode locally:
+
+```bash
+python3 src/refresh_forecast_outputs.py \
+  --recent-raw raw_transactions.csv \
+  --recent-status .automation_raw_last_updated.json \
+  --use-raw-latest-state \
+  --preserve-raw \
+  --bootstrap-days 3 \
+  --limit 1000 \
+  --max-pages-per-window 1 \
+  --workchain 0 \
+  --stream
 python3 scripts/generate_charts.py
 ```
 
@@ -184,6 +229,8 @@ Do not commit `raw_transactions.csv`.
 
 ## Remaining Limitations
 
-The CI refresh does not store full raw transaction history. It refreshes recent hourly aggregates and merges them into committed derived history. If TON Center page limits are hit, `tx_count` and `unique_accounts` remain sampled activity indicators rather than full-chain counts.
+The GitHub Actions-only setup stores raw state in GitHub Actions cache, not in a dedicated database or object store. This is cheaper and simpler than VPS/object storage, but less durable.
 
-Daily retraining uses the committed hourly feature history, not full raw history. This is acceptable for the current lightweight dashboard, but deeper model research should still be done locally or with a dedicated external raw data store.
+If the raw cache is restored, daily retraining uses hourly features rebuilt from the available cached raw state merged into the existing committed hourly history. If the cache is missing or evicted, the workflow bootstraps recent raw data again and keeps older history from `hourly_features.csv`.
+
+If TON Center page limits are hit, `tx_count` and `unique_accounts` remain sampled activity indicators rather than full-chain counts. For production-grade durability, use a VPS or object storage later.

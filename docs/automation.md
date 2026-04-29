@@ -69,10 +69,10 @@ The minimal command requested for collection only is:
 
 The repository contains two scheduled workflows:
 
-- `.github/workflows/hourly_forecast_update.yml`: runs hourly, collects a recent temporary raw window, merges refreshed hourly aggregates into `hourly_features.csv`, regenerates `predictions.csv`, regenerates charts, and commits lightweight outputs.
-- `.github/workflows/daily_model_retrain.yml`: runs daily, refreshes recent hourly data, retrains the model suite, regenerates the forecast and charts, and commits lightweight model outputs.
+- `.github/workflows/hourly_forecast_update.yml`: runs hourly, restores ignored `raw_transactions.csv` from GitHub Actions cache, updates it incrementally, merges refreshed hourly aggregates into `hourly_features.csv`, regenerates `predictions.csv`, regenerates charts, saves the raw CSV back to cache, and commits lightweight outputs.
+- `.github/workflows/daily_model_retrain.yml`: runs daily, restores and updates cached raw data, refreshes hourly data, retrains the model suite, regenerates the forecast and charts, saves the raw CSV back to cache, and commits lightweight model outputs.
 
-The workflows intentionally do not commit `raw_transactions.csv`. GitHub Actions uses `src/refresh_forecast_outputs.py`, which writes ignored temporary files named `.automation_*`, then removes them after the refresh.
+The workflows intentionally do not commit `raw_transactions.csv`. GitHub Actions uses `src/refresh_forecast_outputs.py` with `actions/cache` so raw state can continue across workflow runs without being tracked by Git. If the cache is evicted or missing, the workflow bootstraps recent raw data and preserves older derived history through `hourly_features.csv`.
 
 Add `TONCENTER_API_KEY` as a repository secret if you want higher API throughput. If Netlify is not connected directly to the GitHub repository, add `NETLIFY_BUILD_HOOK_URL` as a repository secret so the workflow can trigger a new deploy after it commits updated outputs.
 
