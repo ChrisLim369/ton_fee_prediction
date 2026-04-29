@@ -174,9 +174,9 @@ Dashboard inputs:
 
 Automation:
 
-- `src/refresh_forecast_outputs.py`: CI-safe refresh script. It collects a recent temporary raw window, merges refreshed hourly aggregates into `hourly_features.csv`, and regenerates `predictions.csv`.
-- `.github/workflows/hourly_forecast_update.yml`: hourly lightweight data, forecast, and chart refresh.
-- `.github/workflows/daily_model_retrain.yml`: daily model retrain plus forecast and chart refresh.
+- `src/refresh_forecast_outputs.py`: CI-safe refresh script. In GitHub Actions-only mode, it restores ignored `raw_transactions.csv` from Actions cache, updates it incrementally, merges refreshed hourly aggregates into `hourly_features.csv`, and regenerates `predictions.csv`.
+- `.github/workflows/hourly_forecast_update.yml`: hourly cached-raw data, forecast, and chart refresh.
+- `.github/workflows/daily_model_retrain.yml`: daily cached-raw refresh, model retrain, forecast, and chart refresh.
 - `docs/automation_forecast_refresh.md`: hosted refresh architecture and setup guide.
 
 ## Command Details
