@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
 
@@ -36,11 +37,15 @@ Commands:
 /forecast - Next 24-hour predicted average transaction fees
 /status - Forecast freshness and automated update status
 /besttime - Predicted cheapest hour in the forecast window
+/timezone - Show timezone detection and override examples
 /model - Best model metrics and plain-language interpretation
 /compare - Top chronological holdout model results
 /backtest - Rolling backtest summary
 /quality - Data quality notes and limitations
 /charts - Available generated chart files and what they show
+
+Times are shown in the detected Telegram language timezone when possible.
+You can override it by adding an IANA timezone, for example: /forecast Asia/Seoul
 """
 
 
@@ -57,6 +62,22 @@ CHART_DESCRIPTIONS = {
 
 
 logger = logging.getLogger("ton_fee_telegram_bot")
+
+LANGUAGE_TIMEZONE_MAP = {
+    "ko": "Asia/Seoul",
+    "ja": "Asia/Tokyo",
+    "zh": "Asia/Shanghai",
+    "zh-cn": "Asia/Shanghai",
+    "zh-hans": "Asia/Shanghai",
+    "zh-tw": "Asia/Taipei",
+    "zh-hant": "Asia/Taipei",
+    "ru": "Europe/Moscow",
+    "uk": "Europe/Kyiv",
+    "tr": "Europe/Istanbul",
+    "pt-br": "America/Sao_Paulo",
+    "es-mx": "America/Mexico_City",
+    "en-gb": "Europe/London",
+}
 
 
 class DashboardError(Exception):
@@ -98,6 +119,13 @@ class ProjectPaths:
     @property
     def figures_dir(self) -> Path:
         return self.root / "docs" / "figures"
+
+
+@dataclass(frozen=True)
+class TimeContext:
+    timezone: ZoneInfo
+    name: str
+    source: str
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -192,12 +220,7 @@ def format_metric(value: Any, digits: int = 4) -> str:
 
 
 def format_timestamp(value: Any) -> str:
-    if not value:
-        return "n/a"
-    text = str(value)
-    if text.endswith("+00:00"):
-        text = f"{text[:-6]}Z"
-    return text
+    return format_timestamp_for_timezone(value, default_time_context())
 
 
 def parse_timestamp(value: Any) -> datetime | None:
@@ -213,6 +236,84 @@ def parse_timestamp(value: Any) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     return parsed.astimezone(UTC)
+
+
+def default_time_context() -> TimeContext:
+    return TimeContext(timezone=ZoneInfo("UTC"), name="UTC", source="fallback")
+
+
+def timezone_from_name(name: str) -> TimeContext | None:
+    candidate = name.strip()
+    if not candidate:
+        return None
+    aliases = {
+        "UTC": "UTC",
+        "GMT": "UTC",
+        "KST": "Asia/Seoul",
+        "JST": "Asia/Tokyo",
+        "EST": "America/New_York",
+        "EDT": "America/New_York",
+        "CST": "America/Chicago",
+        "CDT": "America/Chicago",
+        "MST": "America/Denver",
+        "MDT": "America/Denver",
+        "PST": "America/Los_Angeles",
+        "PDT": "America/Los_Angeles",
+    }
+    zone_name = aliases.get(candidate.upper(), candidate)
+    try:
+        return TimeContext(timezone=ZoneInfo(zone_name), name=zone_name, source="command override")
+    except ZoneInfoNotFoundError:
+        return None
+
+
+def timezone_from_language(language_code: Any) -> TimeContext | None:
+    if not isinstance(language_code, str) or not language_code.strip():
+        return None
+    normalized = language_code.strip().lower().replace("_", "-")
+    zone_name = LANGUAGE_TIMEZONE_MAP.get(normalized) or LANGUAGE_TIMEZONE_MAP.get(normalized.split("-", 1)[0])
+    if not zone_name:
+        return None
+    try:
+        return TimeContext(timezone=ZoneInfo(zone_name), name=zone_name, source=f"Telegram language {language_code}")
+    except ZoneInfoNotFoundError:
+        return None
+
+
+def resolve_time_context(message: dict[str, Any] | None = None) -> TimeContext:
+    text = message.get("text") if isinstance(message, dict) else None
+    if isinstance(text, str):
+        parts = text.strip().split(maxsplit=1)
+        if len(parts) > 1:
+            override = timezone_from_name(parts[1])
+            if override is not None:
+                return override
+
+    user = message.get("from") if isinstance(message, dict) else None
+    if isinstance(user, dict):
+        inferred = timezone_from_language(user.get("language_code"))
+        if inferred is not None:
+            return inferred
+    return default_time_context()
+
+
+def time_context_note(context: TimeContext) -> str:
+    if context.source == "fallback":
+        return "Time zone: UTC fallback. Telegram does not expose a user's exact timezone; add an IANA timezone to override, e.g. /forecast Asia/Seoul."
+    return f"Time zone: {context.name} ({context.source})."
+
+
+def format_timestamp_for_timezone(value: Any, context: TimeContext) -> str:
+    timestamp = parse_timestamp(value)
+    if timestamp is None:
+        if not value:
+            return "n/a"
+        text = str(value)
+        if text.endswith("+00:00"):
+            return f"{text[:-6]}Z"
+        return text
+    local = timestamp.astimezone(context.timezone)
+    return local.strftime("%Y-%m-%d %H:%M %Z")
 
 
 def format_age_hours(value: Any) -> str:
@@ -273,13 +374,16 @@ class Dashboard:
             "This project predicts the next-hour average TON transaction fee from recent TON on-chain "
             "transaction data collected through the TON Center API.\n\n"
             "The bot shows saved project outputs only. It does not retrain models inside Telegram handlers.\n\n"
+            "Times are shown in the detected Telegram language timezone when possible. You can override with "
+            "an IANA timezone, for example: /forecast Asia/Seoul\n\n"
             f"{HELP_TEXT.split('Commands:', 1)[1].strip()}"
         )
 
     def help(self) -> str:
         return HELP_TEXT
 
-    def summary(self) -> str:
+    def summary(self, time_context: TimeContext | None = None) -> str:
+        time_context = time_context or default_time_context()
         metadata = self._metadata()
         hourly = read_csv_overview(self.paths.hourly_features)
         predictions = read_csv_overview(self.paths.predictions)
@@ -297,24 +401,26 @@ class Dashboard:
             "Project Summary",
             "",
             "What it does: predicts the next-hour average TON transaction fee from hourly on-chain features.",
+            time_context_note(time_context),
             f"Raw rows: {format_count(raw_rows)}",
             f"Hourly feature rows: {format_count(hourly['rows'])}",
-            f"Feature date range: {format_timestamp(first_hour)} to {format_timestamp(latest_feature_hour)}",
-            f"Latest raw transaction timestamp: {format_timestamp(latest_raw)}",
-            f"Latest feature timestamp: {format_timestamp(latest_feature_hour)}",
+            f"Feature date range: {format_timestamp_for_timezone(first_hour, time_context)} to {format_timestamp_for_timezone(latest_feature_hour, time_context)}",
+            f"Latest raw transaction timestamp: {format_timestamp_for_timezone(latest_raw, time_context)}",
+            f"Latest feature timestamp: {format_timestamp_for_timezone(latest_feature_hour, time_context)}",
             f"Best model: {metrics.get('best_model_name', 'n/a')}",
             f"Holdout R2: {format_metric(metrics.get('best_r2'))}",
             f"Holdout MAE: {format_nanoton(metrics.get('best_mae'))}",
             f"Forecast rows: {format_count(predictions['rows'])}",
-            f"Forecast range: {format_timestamp(forecast_first)} to {format_timestamp(forecast_last)}",
-            f"Forecast generated at: {format_timestamp(forecast_generated)}",
+            f"Forecast range: {format_timestamp_for_timezone(forecast_first, time_context)} to {format_timestamp_for_timezone(forecast_last, time_context)}",
+            f"Forecast generated at: {format_timestamp_for_timezone(forecast_generated, time_context)}",
             "",
             "Important limitation: some collection windows hit TON Center API page limits, so activity counts "
             "are sampled indicators rather than guaranteed full-chain volume.",
         ]
         return "\n".join(lines)
 
-    def forecast(self) -> str:
+    def forecast(self, time_context: TimeContext | None = None) -> str:
+        time_context = time_context or default_time_context()
         rows = read_csv_rows(self.paths.predictions)
         if not rows:
             raise DashboardError("predictions.csv has no forecast rows.")
@@ -325,15 +431,16 @@ class Dashboard:
         lines = [
             "Next 24-Hour Fee Forecast",
             "",
-            f"Generated at: {format_timestamp(generated)}",
-            f"Forecast range: {format_timestamp(rows[0].get('forecast_hour'))} to {format_timestamp(rows[-1].get('forecast_hour'))}",
-            f"Latest feature hour: {format_timestamp(self._latest_feature_hour())}",
-            f"Latest raw transaction timestamp: {format_timestamp(self._metadata().get('latest_iso_utc'))}",
+            time_context_note(time_context),
+            f"Generated at: {format_timestamp_for_timezone(generated, time_context)}",
+            f"Forecast range: {format_timestamp_for_timezone(rows[0].get('forecast_hour'), time_context)} to {format_timestamp_for_timezone(rows[-1].get('forecast_hour'), time_context)}",
+            f"Latest feature hour: {format_timestamp_for_timezone(self._latest_feature_hour(), time_context)}",
+            f"Latest raw transaction timestamp: {format_timestamp_for_timezone(self._metadata().get('latest_iso_utc'), time_context)}",
             f"Forecast age: {format_age_hours(generated)}",
             f"Freshness: {freshness_status(generated, rows[-1].get('forecast_hour'))[0]}",
             f"Model: {model_name}",
             "",
-            "Each row is the predicted average transaction fee for that UTC hour.",
+            f"Each row is the predicted average transaction fee for that hour in {time_context.name}.",
             "",
         ]
         for row in rows[:24]:
@@ -343,7 +450,7 @@ class Dashboard:
                 predicted_ton = nanoton_to_ton(predicted_nanoton)
             lines.append(
                 f"h{to_int(row.get('horizon_hours'), 0):02d} "
-                f"{format_hour(row.get('forecast_hour'))} | "
+                f"{format_hour(row.get('forecast_hour'), time_context)} | "
                 f"{format_nanoton(predicted_nanoton)} | {format_ton(predicted_ton)}"
             )
 
@@ -359,7 +466,8 @@ class Dashboard:
         lines = [line for line in lines if line is not None]
         return "\n".join(lines)
 
-    def status(self) -> str:
+    def status(self, time_context: TimeContext | None = None) -> str:
+        time_context = time_context or default_time_context()
         metadata = self._metadata()
         hourly = read_csv_overview(self.paths.hourly_features)
         predictions = read_csv_overview(self.paths.predictions)
@@ -370,13 +478,14 @@ class Dashboard:
         lines = [
             "Forecast Refresh Status",
             "",
+            time_context_note(time_context),
             f"Automation mode: {metadata.get('automation_mode', 'manual/local output')}",
-            f"Last data update finished: {format_timestamp(metadata.get('update_finished_at_utc'))}",
-            f"Forecast generated at: {format_timestamp(forecast_generated)}",
+            f"Last data update finished: {format_timestamp_for_timezone(metadata.get('update_finished_at_utc'), time_context)}",
+            f"Forecast generated at: {format_timestamp_for_timezone(forecast_generated, time_context)}",
             f"Forecast age: {format_age_hours(forecast_generated)}",
-            f"Forecast range: {format_timestamp(predictions['first'].get('forecast_hour'))} to {format_timestamp(forecast_end)}",
-            f"Latest feature hour: {format_timestamp(hourly['last'].get('hour'))}",
-            f"Latest raw transaction timestamp: {format_timestamp(metadata.get('latest_iso_utc'))}",
+            f"Forecast range: {format_timestamp_for_timezone(predictions['first'].get('forecast_hour'), time_context)} to {format_timestamp_for_timezone(forecast_end, time_context)}",
+            f"Latest feature hour: {format_timestamp_for_timezone(hourly['last'].get('hour'), time_context)}",
+            f"Latest raw transaction timestamp: {format_timestamp_for_timezone(metadata.get('latest_iso_utc'), time_context)}",
             f"Recent raw rows collected by automation: {format_count(metadata.get('recent_raw_rows_collected'))}",
             f"Known full raw rows: {format_count(metadata.get('final_rows'))}",
             f"Freshness: {status}",
@@ -387,7 +496,8 @@ class Dashboard:
             lines.extend(["", *[f"Warning: {warning}" for warning in warnings]])
         return "\n".join(lines)
 
-    def besttime(self) -> str:
+    def besttime(self, time_context: TimeContext | None = None) -> str:
+        time_context = time_context or default_time_context()
         rows = read_csv_rows(self.paths.predictions)
         if not rows:
             raise DashboardError("predictions.csv has no forecast rows.")
@@ -408,9 +518,10 @@ class Dashboard:
         lines = [
             "Best Predicted Time Window",
             "",
-            f"Cheapest predicted hour: {format_timestamp(cheapest.get('forecast_hour'))}",
+            time_context_note(time_context),
+            f"Cheapest predicted hour: {format_timestamp_for_timezone(cheapest.get('forecast_hour'), time_context)}",
             f"Predicted average fee: {format_nanoton(cheapest_fee)} ({format_ton(nanoton_to_ton(cheapest_fee))})",
-            f"Highest predicted hour in window: {format_timestamp(highest.get('forecast_hour'))}",
+            f"Highest predicted hour in window: {format_timestamp_for_timezone(highest.get('forecast_hour'), time_context)}",
             f"Difference vs highest predicted fee: {format_nanoton(difference)} "
             f"({format_ton(nanoton_to_ton(difference))}, about {percent:.1f}% lower)",
             "",
@@ -527,7 +638,8 @@ class Dashboard:
             )
         return "\n".join(lines)
 
-    def quality(self) -> str:
+    def quality(self, time_context: TimeContext | None = None) -> str:
+        time_context = time_context or default_time_context()
         metadata = self._metadata()
         hourly = read_csv_overview(self.paths.hourly_features)
 
@@ -538,10 +650,11 @@ class Dashboard:
         lines = [
             "Data Quality And Limitations",
             "",
+            time_context_note(time_context),
             f"Raw rows from metadata: {format_count(metadata.get('final_rows'))}",
             f"Hourly feature rows: {format_count(hourly['rows'])}",
-            f"Feature range: {format_timestamp(hourly['first'].get('hour'))} to {format_timestamp(hourly['last'].get('hour'))}",
-            f"Latest raw transaction timestamp: {format_timestamp(metadata.get('latest_iso_utc'))}",
+            f"Feature range: {format_timestamp_for_timezone(hourly['first'].get('hour'), time_context)} to {format_timestamp_for_timezone(hourly['last'].get('hour'), time_context)}",
+            f"Latest raw transaction timestamp: {format_timestamp_for_timezone(metadata.get('latest_iso_utc'), time_context)}",
             "Duplicate policy: raw transactions are de-duplicated by hash + lt.",
             f"API page-limit hits: {format_count(limit_hits)} windows hit the configured page limit.",
             f"Collection page settings: limit={format_count(limit)}, max_pages_per_window={format_count(max_pages)}",
@@ -552,6 +665,25 @@ class Dashboard:
             "a directional signal, not a production-grade guarantee.",
         ]
         return "\n".join(lines)
+
+    def timezone(self, time_context: TimeContext | None = None) -> str:
+        time_context = time_context or default_time_context()
+        return "\n".join(
+            [
+                "Timezone Display",
+                "",
+                time_context_note(time_context),
+                "",
+                "Telegram messages do not include the user's exact device timezone. The bot estimates from Telegram language when possible and falls back to UTC when it cannot infer a reliable timezone.",
+                "",
+                "Override examples:",
+                "/forecast Asia/Seoul",
+                "/besttime America/New_York",
+                "/status Europe/London",
+                "",
+                "Use IANA timezone names such as Asia/Seoul, America/Los_Angeles, Europe/Paris, or UTC.",
+            ]
+        )
 
     def charts(self) -> str:
         if not self.paths.figures_dir.exists():
@@ -621,15 +753,9 @@ def format_count(value: Any) -> str:
     return f"{numeric:,}"
 
 
-def format_hour(value: Any) -> str:
-    if not value:
-        return "n/a"
-    text = str(value).replace("T", " ")
-    if text.endswith(":00Z"):
-        text = text[:-4] + " UTC"
-    elif text.endswith("Z"):
-        text = text[:-1] + " UTC"
-    return text
+def format_hour(value: Any, context: TimeContext | None = None) -> str:
+    context = context or default_time_context()
+    return format_timestamp_for_timezone(value, context)
 
 
 class TelegramClient:
@@ -696,23 +822,24 @@ def command_name(text: str) -> str:
     return first_token.split("@", 1)[0]
 
 
-def build_handlers(dashboard: Dashboard) -> dict[str, Callable[[], str]]:
+def build_handlers(dashboard: Dashboard) -> dict[str, Callable[[TimeContext], str]]:
     return {
-        "/start": dashboard.start,
-        "/help": dashboard.help,
+        "/start": lambda _time_context: dashboard.start(),
+        "/help": lambda _time_context: dashboard.help(),
         "/summary": dashboard.summary,
         "/forecast": dashboard.forecast,
         "/status": dashboard.status,
         "/besttime": dashboard.besttime,
-        "/model": dashboard.model,
-        "/compare": dashboard.compare,
-        "/backtest": dashboard.backtest,
+        "/timezone": dashboard.timezone,
+        "/model": lambda _time_context: dashboard.model(),
+        "/compare": lambda _time_context: dashboard.compare(),
+        "/backtest": lambda _time_context: dashboard.backtest(),
         "/quality": dashboard.quality,
-        "/charts": dashboard.charts,
+        "/charts": lambda _time_context: dashboard.charts(),
     }
 
 
-def handle_message(message: dict[str, Any], handlers: dict[str, Callable[[], str]]) -> str | None:
+def handle_message(message: dict[str, Any], handlers: dict[str, Callable[[TimeContext], str]]) -> str | None:
     text = message.get("text")
     if not isinstance(text, str) or not text.strip().startswith("/"):
         return None
@@ -722,7 +849,7 @@ def handle_message(message: dict[str, Any], handlers: dict[str, Callable[[], str
         return "Unknown command. Use /help to see available dashboard commands."
 
     try:
-        return handler()
+        return handler(resolve_time_context(message))
     except DashboardError as exc:
         return f"Dashboard data is not available yet: {exc}"
     except Exception:
@@ -773,6 +900,7 @@ def validate_dashboard(dashboard: Dashboard) -> int:
         ("/forecast", dashboard.forecast),
         ("/status", dashboard.status),
         ("/besttime", dashboard.besttime),
+        ("/timezone", dashboard.timezone),
         ("/model", dashboard.model),
         ("/compare", dashboard.compare),
         ("/backtest", dashboard.backtest),

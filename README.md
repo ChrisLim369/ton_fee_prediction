@@ -107,6 +107,8 @@ The bot reads existing output files such as `predictions.csv`, `hourly_features.
 
 `/forecast` includes forecast freshness metadata, and `/status` reports the latest automated update time, forecast age, latest feature hour, and stale/fresh status.
 
+Forecast, best-time, status, summary, and quality timestamps are displayed in the detected Telegram language timezone when possible. Users can override the display timezone per command, for example `/forecast Asia/Seoul` or `/besttime America/New_York`.
+
 Validate locally without starting Telegram polling:
 
 ```bash
