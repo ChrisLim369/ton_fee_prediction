@@ -78,7 +78,7 @@ Automated hosted refresh:
 
 - `.github/workflows/hourly_forecast_update.yml` refreshes recent data, `hourly_features.csv`, `predictions.csv`, and charts every hour.
 - `.github/workflows/daily_model_retrain.yml` refreshes recent data, retrains the model suite daily, regenerates forecasts, and updates model artifacts.
-- `src/refresh_forecast_outputs.py` is the CI-safe refresh entry point. It collects only a recent temporary raw window, merges hourly aggregates into the committed lightweight feature history, and never commits `raw_transactions.csv`.
+- `src/refresh_forecast_outputs.py` is the CI-safe refresh entry point. In GitHub Actions-only mode, it restores ignored `raw_transactions.csv` from Actions cache, updates it incrementally, merges hourly aggregates into the committed lightweight feature history, and never commits `raw_transactions.csv`.
 - Netlify must be connected to GitHub or a `NETLIFY_BUILD_HOOK_URL` GitHub secret must be configured so committed forecast outputs trigger a fresh deploy.
 
 See `docs/automation_forecast_refresh.md` for the deployed Telegram forecast refresh architecture.
