@@ -285,6 +285,7 @@ python3 src/telegram_bot.py --validate
 ```text
 /summary
 /forecast
+/status
 /besttime
 /model
 /compare
@@ -333,6 +334,21 @@ tsconfig.json
 
 docs/telegram_bot.md
 - 로컬 실행, Netlify 배포, webhook 등록, 명령어, 보안 주의사항을 정리한 상세 설명서입니다.
+
+src/refresh_forecast_outputs.py
+- GitHub Actions에서 사용하는 자동 refresh 스크립트입니다.
+- GitHub에 올릴 수 없는 대용량 raw_transactions.csv 대신 최근 72시간 임시 raw 파일을 수집합니다.
+- 최근 hourly 집계를 기존 hourly_features.csv와 병합한 뒤 lag/rolling/target 컬럼을 다시 계산합니다.
+- predictions.csv와 last_updated.json을 새로 갱신합니다.
+
+.github/workflows/hourly_forecast_update.yml
+- 매시간 최근 데이터, hourly_features.csv, predictions.csv, docs/figures/*.svg를 갱신합니다.
+
+.github/workflows/daily_model_retrain.yml
+- 하루 한 번 모델을 재학습하고 model 결과 파일, forecast, chart를 갱신합니다.
+
+docs/automation_forecast_refresh.md
+- Telegram /forecast가 자동으로 최신화되는 구조와 필요한 secret을 설명합니다.
 ```
 
 Netlify 환경변수:
@@ -368,6 +384,55 @@ npm run check:netlify
 ```
 
 같은 Telegram bot token으로 로컬 polling 봇과 Netlify webhook을 동시에 운영하지 마세요. Netlify로 운영할 때는 로컬 `src/telegram_bot.py` 프로세스를 중지하세요.
+
+### 자동 forecast refresh
+
+Telegram 사용자가 `/forecast`를 입력할 때 Telegram handler가 직접 데이터를 수집하거나 모델을 학습하지 않습니다. 대신 GitHub Actions가 백그라운드에서 output 파일을 갱신하고, Netlify가 새 파일을 포함해 다시 배포한 뒤, Telegram bot이 그 최신 배포 파일을 읽습니다.
+
+흐름:
+
+```text
+GitHub Actions hourly schedule
+-> 최근 TON 거래 임시 수집
+-> hourly_features.csv 병합/갱신
+-> predictions.csv 재생성
+-> chart 재생성
+-> lightweight output만 GitHub에 commit
+-> Netlify 자동 redeploy 또는 build hook 호출
+-> Telegram /forecast가 최신 배포 파일 읽기
+```
+
+중요:
+
+```text
+raw_transactions.csv는 GitHub에 올리지 않습니다.
+.automation_recent_raw_transactions.csv 같은 임시 파일도 commit하지 않습니다.
+GitHub Actions에서는 최근 window만 수집하므로 tx_count/unique_accounts는 여전히 sampled activity로 해석해야 합니다.
+```
+
+필요한 GitHub Actions secret:
+
+```text
+TONCENTER_API_KEY
+NETLIFY_BUILD_HOOK_URL  # Netlify가 GitHub에 직접 연결되어 있지 않을 때만 필요
+```
+
+Telegram에서 freshness 확인:
+
+```text
+/forecast
+- forecast 생성 시각
+- forecast 범위
+- latest feature hour
+- latest raw transaction timestamp
+- stale/fresh 경고
+
+/status
+- 자동 업데이트 상태
+- forecast age
+- 최근 CI raw sample row 수
+- known full raw row 수
+```
 
 ## 기본 실행 명령어
 

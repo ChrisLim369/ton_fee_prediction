@@ -19,6 +19,8 @@ type TelegramUpdate = {
   message?: TelegramMessage;
 };
 
+const FORECAST_STALE_HOURS = 6;
+
 export default async (req: Request, context: Context) => {
   if (req.method === "GET") {
     return jsonResponse({
@@ -29,6 +31,7 @@ export default async (req: Request, context: Context) => {
         "/help",
         "/summary",
         "/forecast",
+        "/status",
         "/besttime",
         "/model",
         "/compare",
@@ -105,6 +108,8 @@ class Dashboard {
           return await this.summary();
         case "/forecast":
           return await this.forecast();
+        case "/status":
+          return await this.status();
         case "/besttime":
           return await this.besttime();
         case "/model":
@@ -188,6 +193,11 @@ class Dashboard {
       "Next 24-Hour Fee Forecast",
       "",
       `Generated at: ${formatTimestamp(rows[0].forecast_generated_at)}`,
+      `Forecast range: ${formatTimestamp(rows[0].forecast_hour)} to ${formatTimestamp(rows[rows.length - 1].forecast_hour)}`,
+      `Latest feature hour: ${formatTimestamp((await readCsvOverview(this.path("hourly_features.csv"))).last.hour)}`,
+      `Latest raw transaction timestamp: ${formatTimestamp((await this.metadata()).latest_iso_utc)}`,
+      `Forecast age: ${formatAgeHours(rows[0].forecast_generated_at)}`,
+      `Freshness: ${freshnessStatus(rows[0].forecast_generated_at, rows[rows.length - 1].forecast_hour).label}`,
       `Model: ${stringValue(rows[0].model_name)}`,
       "",
       "Each row is the predicted average transaction fee for that UTC hour.",
@@ -204,10 +214,47 @@ class Dashboard {
       );
     }
 
+    const freshness = freshnessStatus(rows[0].forecast_generated_at, rows[rows.length - 1].forecast_hour);
+    for (const warning of freshness.warnings) {
+      lines.push(`Warning: ${warning}`);
+    }
+    if (freshness.warnings.length > 0) {
+      lines.push("");
+    }
     lines.push(
       "",
       "Interpretation: use this as a directional guide. Actual TON fees can move quickly when network behavior changes.",
     );
+    return lines.join("\n");
+  }
+
+  async status(): Promise<string> {
+    const metadata = await this.metadata();
+    const hourly = await readCsvOverview(this.path("hourly_features.csv"));
+    const predictions = await readCsvOverview(this.path("predictions.csv"));
+    const forecastGenerated = predictions.first.forecast_generated_at || stringValue(metadata.forecast_generated_at);
+    const forecastEnd = predictions.last.forecast_hour || stringValue(metadata.forecast_end);
+    const freshness = freshnessStatus(forecastGenerated, forecastEnd);
+
+    const lines = [
+      "Forecast Refresh Status",
+      "",
+      `Automation mode: ${stringValue(metadata.automation_mode) === "n/a" ? "manual/local output" : stringValue(metadata.automation_mode)}`,
+      `Last data update finished: ${formatTimestamp(metadata.update_finished_at_utc)}`,
+      `Forecast generated at: ${formatTimestamp(forecastGenerated)}`,
+      `Forecast age: ${formatAgeHours(forecastGenerated)}`,
+      `Forecast range: ${formatTimestamp(predictions.first.forecast_hour)} to ${formatTimestamp(forecastEnd)}`,
+      `Latest feature hour: ${formatTimestamp(hourly.last.hour)}`,
+      `Latest raw transaction timestamp: ${formatTimestamp(metadata.latest_iso_utc)}`,
+      `Recent raw rows collected by automation: ${formatCount(metadata.recent_raw_rows_collected)}`,
+      `Known full raw rows: ${formatCount(metadata.final_rows)}`,
+      `Freshness: ${freshness.label}`,
+      "",
+      "Telegram handlers are read-only. Data collection, feature refresh, forecasting, charts, and Netlify redeploys run in the scheduled GitHub Actions pipeline.",
+    ];
+    for (const warning of freshness.warnings) {
+      lines.push(`Warning: ${warning}`);
+    }
     return lines.join("\n");
   }
 
@@ -548,6 +595,7 @@ function commandList(): string {
     "/help - Show this help message",
     "/summary - Project status, data size, model, and forecast availability",
     "/forecast - Next 24-hour predicted average transaction fees",
+    "/status - Forecast freshness and automated update status",
     "/besttime - Predicted cheapest hour in the forecast window",
     "/model - Best model metrics and plain-language interpretation",
     "/compare - Top chronological holdout model results",
@@ -612,6 +660,49 @@ function nanotonToTon(value: unknown): number | null {
 function percentFromR2(value: unknown): string {
   const numeric = toNumber(value);
   return numeric === null ? "n/a" : `${(numeric * 100).toFixed(1)}%`;
+}
+
+function parseTimestamp(value: unknown): Date | null {
+  const text = stringValue(value);
+  if (text === "n/a") {
+    return null;
+  }
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatAgeHours(value: unknown): string {
+  const timestamp = parseTimestamp(value);
+  if (!timestamp) {
+    return "n/a";
+  }
+  const hours = Math.max(0, (Date.now() - timestamp.getTime()) / 3_600_000);
+  return `${hours.toFixed(1)} hours`;
+}
+
+function freshnessStatus(generatedAt: unknown, forecastEnd: unknown): { label: string; warnings: string[] } {
+  const warnings: string[] = [];
+  const generated = parseTimestamp(generatedAt);
+  const end = parseTimestamp(forecastEnd);
+  const now = Date.now();
+
+  if (!generated) {
+    warnings.push("Forecast generated timestamp is missing.");
+  } else {
+    const ageHours = (now - generated.getTime()) / 3_600_000;
+    if (ageHours > FORECAST_STALE_HOURS) {
+      warnings.push(`Forecast is older than ${FORECAST_STALE_HOURS} hours. Treat it as stale until automation refreshes it.`);
+    }
+  }
+
+  if (end && end.getTime() < now) {
+    warnings.push("Forecast window has already ended. Treat this output as stale.");
+  }
+
+  return {
+    label: warnings.length > 0 ? "STALE / check automation" : "Fresh enough for directional use",
+    warnings,
+  };
 }
 
 function formatTimestamp(value: unknown): string {

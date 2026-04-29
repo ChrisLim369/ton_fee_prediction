@@ -9,6 +9,8 @@ Both runtimes are read-only dashboards for the TON fee prediction project. They 
 
 The bot reads existing project outputs only. It does not collect data, rebuild features, retrain models, regenerate forecasts, or write any project files.
 
+Forecast refreshes happen outside Telegram through GitHub Actions. See `docs/automation_forecast_refresh.md` for the hourly forecast update, daily retraining, and Netlify redeploy flow.
+
 ## Required Files
 
 The dashboard commands read these files. `netlify.toml` includes them in the Netlify Function bundle:
@@ -136,6 +138,7 @@ npm run check:netlify
 /help
 /summary
 /forecast
+/status
 /besttime
 /model
 /compare
@@ -169,11 +172,20 @@ Dashboard inputs:
 - `collection_metadata.json`: fallback metadata if `last_updated.json` is unavailable.
 - `docs/figures/*.svg`: chart inventory shown by `/charts`.
 
+Automation:
+
+- `src/refresh_forecast_outputs.py`: CI-safe refresh script. It collects a recent temporary raw window, merges refreshed hourly aggregates into `hourly_features.csv`, and regenerates `predictions.csv`.
+- `.github/workflows/hourly_forecast_update.yml`: hourly lightweight data, forecast, and chart refresh.
+- `.github/workflows/daily_model_retrain.yml`: daily model retrain plus forecast and chart refresh.
+- `docs/automation_forecast_refresh.md`: hosted refresh architecture and setup guide.
+
 ## Command Details
 
 `/summary` shows the data size, feature range, latest raw transaction timestamp, current best model, forecast availability, and the sampled-coverage limitation.
 
-`/forecast` shows the next 24 saved forecast rows with UTC forecast hour, predicted average fee in nanoton, predicted fee in TON, and model name.
+`/forecast` shows the next 24 saved forecast rows with UTC forecast hour, predicted average fee in nanoton, predicted fee in TON, model name, forecast generation time, forecast range, latest feature hour, latest raw transaction timestamp, forecast age, and a stale/fresh warning.
+
+`/status` shows the automated refresh state, last data update time, forecast generation time, forecast age, latest feature hour, latest raw transaction timestamp, recent CI raw sample size, known full raw row count, and stale/fresh status.
 
 `/besttime` finds the lowest predicted average fee in `predictions.csv`, compares it with the highest predicted fee in the same forecast window, and explains that the result is directional rather than guaranteed.
 

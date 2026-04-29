@@ -1,0 +1,75 @@
+name: Hourly TON Forecast Update
+
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ton-forecast-refresh
+  cancel-in-progress: false
+
+jobs:
+  hourly-forecast-update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Refresh recent data, hourly features, and forecast
+        env:
+          TONCENTER_API_KEY: ${{ secrets.TONCENTER_API_KEY }}
+        run: |
+          python src/refresh_forecast_outputs.py \
+            --lookback-hours 72 \
+            --limit 1000 \
+            --max-pages-per-window 1 \
+            --workchain 0
+
+      - name: Regenerate charts
+        run: python scripts/generate_charts.py
+
+      - name: Commit refreshed lightweight outputs
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- hourly_features.csv predictions.csv last_updated.json collection_metadata.json
+          git add -- docs/figures/*.svg
+          if git diff --cached --quiet; then
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            echo "No lightweight forecast output changes to commit."
+          else
+            git commit -m "Update TON hourly forecast outputs"
+            git push
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger Netlify build hook
+        if: steps.commit.outputs.committed == 'true'
+        env:
+          NETLIFY_BUILD_HOOK_URL: ${{ secrets.NETLIFY_BUILD_HOOK_URL }}
+        run: |
+          if [ -n "${NETLIFY_BUILD_HOOK_URL:-}" ]; then
+            curl -fsS -X POST "$NETLIFY_BUILD_HOOK_URL" >/dev/null
+          else
+            echo "NETLIFY_BUILD_HOOK_URL is not configured; relying on Git-connected Netlify deploys."
+          fi

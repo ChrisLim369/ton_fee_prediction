@@ -67,18 +67,16 @@ The minimal command requested for collection only is:
 
 ## GitHub Actions
 
-A local workflow template can be kept at `.github/workflows/update_data.yml`, but uploading workflow files to GitHub requires a token with the `workflow` scope. If your current GitHub token does not have that scope, commit the project first without the workflow file and add the workflow later from GitHub or from a workflow-scoped token.
+The repository contains two scheduled workflows:
 
-When enabled, the workflow runs hourly. It:
+- `.github/workflows/hourly_forecast_update.yml`: runs hourly, collects a recent temporary raw window, merges refreshed hourly aggregates into `hourly_features.csv`, regenerates `predictions.csv`, regenerates charts, and commits lightweight outputs.
+- `.github/workflows/daily_model_retrain.yml`: runs daily, refreshes recent hourly data, retrains the model suite, regenerates the forecast and charts, and commits lightweight model outputs.
 
-- Installs dependencies.
-- Runs `python src/update_data.py`.
-- Rebuilds `hourly_features.csv`.
-- Retrains the model once per day, or when the model is missing.
-- Generates `predictions.csv`.
-- Commits updated CSVs, predictions, model metrics, and `last_updated.json`.
+The workflows intentionally do not commit `raw_transactions.csv`. GitHub Actions uses `src/refresh_forecast_outputs.py`, which writes ignored temporary files named `.automation_*`, then removes them after the refresh.
 
-Add `TONCENTER_API_KEY` as a repository secret if you want higher API throughput.
+Add `TONCENTER_API_KEY` as a repository secret if you want higher API throughput. If Netlify is not connected directly to the GitHub repository, add `NETLIFY_BUILD_HOOK_URL` as a repository secret so the workflow can trigger a new deploy after it commits updated outputs.
+
+Detailed hosted refresh notes are in `docs/automation_forecast_refresh.md`.
 
 ## Dashboard Inputs
 

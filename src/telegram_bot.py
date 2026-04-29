@@ -11,6 +11,7 @@ import os
 import sys
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -20,6 +21,7 @@ import requests
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MAX_TELEGRAM_MESSAGE_LENGTH = 3900
 NANOTON_PER_TON = 1_000_000_000
+FORECAST_STALE_HOURS = 6
 
 
 HELP_TEXT = """TON Fee Prediction Dashboard
@@ -32,6 +34,7 @@ Commands:
 /help - Show this help message
 /summary - Project status, data size, model, and forecast availability
 /forecast - Next 24-hour predicted average transaction fees
+/status - Forecast freshness and automated update status
 /besttime - Predicted cheapest hour in the forecast window
 /model - Best model metrics and plain-language interpretation
 /compare - Top chronological holdout model results
@@ -197,6 +200,52 @@ def format_timestamp(value: Any) -> str:
     return text
 
 
+def parse_timestamp(value: Any) -> datetime | None:
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text or text.lower() == "n/a":
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def format_age_hours(value: Any) -> str:
+    timestamp = parse_timestamp(value)
+    if timestamp is None:
+        return "n/a"
+    hours = max(0.0, (datetime.now(UTC) - timestamp).total_seconds() / 3600)
+    return f"{hours:.1f} hours"
+
+
+def freshness_status(generated_at: Any, forecast_end: Any) -> tuple[str, list[str]]:
+    warnings: list[str] = []
+    generated = parse_timestamp(generated_at)
+    end = parse_timestamp(forecast_end)
+    now = datetime.now(UTC)
+
+    if generated is None:
+        warnings.append("Forecast generated timestamp is missing.")
+    else:
+        age_hours = (now - generated).total_seconds() / 3600
+        if age_hours > FORECAST_STALE_HOURS:
+            warnings.append(
+                f"Forecast is older than {FORECAST_STALE_HOURS} hours. Treat it as stale until automation refreshes it."
+            )
+
+    if end is not None and end < now:
+        warnings.append("Forecast window has already ended. Treat this output as stale.")
+
+    if warnings:
+        return "STALE / check automation", warnings
+    return "Fresh enough for directional use", []
+
+
 def percent_from_r2(value: Any) -> str:
     numeric = to_float(value)
     if numeric is None:
@@ -277,6 +326,11 @@ class Dashboard:
             "Next 24-Hour Fee Forecast",
             "",
             f"Generated at: {format_timestamp(generated)}",
+            f"Forecast range: {format_timestamp(rows[0].get('forecast_hour'))} to {format_timestamp(rows[-1].get('forecast_hour'))}",
+            f"Latest feature hour: {format_timestamp(self._latest_feature_hour())}",
+            f"Latest raw transaction timestamp: {format_timestamp(self._metadata().get('latest_iso_utc'))}",
+            f"Forecast age: {format_age_hours(generated)}",
+            f"Freshness: {freshness_status(generated, rows[-1].get('forecast_hour'))[0]}",
             f"Model: {model_name}",
             "",
             "Each row is the predicted average transaction fee for that UTC hour.",
@@ -296,10 +350,41 @@ class Dashboard:
         lines.extend(
             [
                 "",
+                *[f"Warning: {warning}" for warning in freshness_status(generated, rows[-1].get("forecast_hour"))[1]],
+                "" if freshness_status(generated, rows[-1].get("forecast_hour"))[1] else None,
                 "Interpretation: use this as a directional guide. Actual TON fees can move quickly when "
                 "network behavior changes.",
             ]
         )
+        lines = [line for line in lines if line is not None]
+        return "\n".join(lines)
+
+    def status(self) -> str:
+        metadata = self._metadata()
+        hourly = read_csv_overview(self.paths.hourly_features)
+        predictions = read_csv_overview(self.paths.predictions)
+        forecast_generated = predictions["first"].get("forecast_generated_at") or metadata.get("forecast_generated_at")
+        forecast_end = predictions["last"].get("forecast_hour") or metadata.get("forecast_end")
+        status, warnings = freshness_status(forecast_generated, forecast_end)
+
+        lines = [
+            "Forecast Refresh Status",
+            "",
+            f"Automation mode: {metadata.get('automation_mode', 'manual/local output')}",
+            f"Last data update finished: {format_timestamp(metadata.get('update_finished_at_utc'))}",
+            f"Forecast generated at: {format_timestamp(forecast_generated)}",
+            f"Forecast age: {format_age_hours(forecast_generated)}",
+            f"Forecast range: {format_timestamp(predictions['first'].get('forecast_hour'))} to {format_timestamp(forecast_end)}",
+            f"Latest feature hour: {format_timestamp(hourly['last'].get('hour'))}",
+            f"Latest raw transaction timestamp: {format_timestamp(metadata.get('latest_iso_utc'))}",
+            f"Recent raw rows collected by automation: {format_count(metadata.get('recent_raw_rows_collected'))}",
+            f"Known full raw rows: {format_count(metadata.get('final_rows'))}",
+            f"Freshness: {status}",
+            "",
+            "Telegram handlers are read-only. Data collection, feature refresh, forecasting, charts, and Netlify redeploys run in the scheduled GitHub Actions pipeline.",
+        ]
+        if warnings:
+            lines.extend(["", *[f"Warning: {warning}" for warning in warnings]])
         return "\n".join(lines)
 
     def besttime(self) -> str:
@@ -524,6 +609,10 @@ class Dashboard:
             return {}
         return read_json(path)
 
+    def _latest_feature_hour(self) -> str:
+        hourly = read_csv_overview(self.paths.hourly_features)
+        return hourly["last"].get("hour", "")
+
 
 def format_count(value: Any) -> str:
     numeric = to_int(value)
@@ -613,6 +702,7 @@ def build_handlers(dashboard: Dashboard) -> dict[str, Callable[[], str]]:
         "/help": dashboard.help,
         "/summary": dashboard.summary,
         "/forecast": dashboard.forecast,
+        "/status": dashboard.status,
         "/besttime": dashboard.besttime,
         "/model": dashboard.model,
         "/compare": dashboard.compare,
@@ -681,6 +771,7 @@ def validate_dashboard(dashboard: Dashboard) -> int:
         ("/help", dashboard.help),
         ("/summary", dashboard.summary),
         ("/forecast", dashboard.forecast),
+        ("/status", dashboard.status),
         ("/besttime", dashboard.besttime),
         ("/model", dashboard.model),
         ("/compare", dashboard.compare),
