@@ -74,6 +74,46 @@ Local cron example:
 
 See `docs/automation.md` for the full hourly update, daily retraining, and GitHub Actions schedule.
 
+## Telegram Bot Dashboard
+
+The project includes a read-only Telegram chatbot dashboard that explains the project, shows the latest saved forecast, summarizes model performance, and documents data quality limitations.
+
+Local polling mode:
+
+```bash
+cd /Users/changhyuklim/ton_fee_prediction
+export TELEGRAM_BOT_TOKEN="your_token_here"
+python3 src/telegram_bot.py
+```
+
+Netlify hosted webhook mode:
+
+```text
+https://ton-fee-forecast.netlify.app/telegram-webhook
+```
+
+Set `TELEGRAM_BOT_TOKEN` in Netlify environment variables, deploy this repository, then register the Telegram webhook with BotFather's token through the Telegram `setWebhook` API. Optional `TELEGRAM_WEBHOOK_SECRET` is supported for webhook request validation.
+
+The bot reads existing output files such as `predictions.csv`, `hourly_features.csv`, `models/model_metrics.json`, `models/model_comparison.csv`, and `models/rolling_backtest.csv`. It does not retrain models or modify data inside Telegram request handlers.
+
+Validate locally without starting Telegram polling:
+
+```bash
+python3 -m py_compile src/telegram_bot.py
+python3 src/telegram_bot.py --validate
+npm run check:netlify
+```
+
+See `docs/telegram_bot.md` for commands and operational notes.
+
+Telegram and Netlify files:
+
+- `src/telegram_bot.py`: local polling version for development or Mac/VPS operation.
+- `netlify/functions/telegram-webhook.mts`: hosted Telegram webhook function for Netlify.
+- `netlify.toml`: Netlify build/function settings and included dashboard artifact files.
+- `package.json`, `package-lock.json`, `tsconfig.json`: TypeScript validation and Netlify Function dependency metadata.
+- `docs/telegram_bot.md`: full dashboard, deployment, webhook, and troubleshooting guide.
+
 ## Outputs
 
 - `raw_transactions.csv`: transaction-level rows.
@@ -94,4 +134,5 @@ See `docs/automation.md` for the full hourly update, daily retraining, and GitHu
 - `actual_vs_predicted.csv`: test-period actual vs predicted values for the selected best model.
 - `docs/model_evaluation_report.md`: short model evaluation summary.
 - `docs/visualizations.md`: Markdown page linking generated SVG charts.
+- `docs/telegram_bot.md`: Telegram chatbot dashboard guide.
 - `docs/figures/`: generated SVG charts for fees, model comparisons, backtests, and forecasts.

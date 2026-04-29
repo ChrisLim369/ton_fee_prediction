@@ -1,0 +1,739 @@
+#!/usr/bin/env python3
+"""Read-only Telegram dashboard for the TON fee prediction project."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import logging
+import os
+import sys
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Callable
+
+import requests
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+MAX_TELEGRAM_MESSAGE_LENGTH = 3900
+NANOTON_PER_TON = 1_000_000_000
+
+
+HELP_TEXT = """TON Fee Prediction Dashboard
+
+This bot explains the TON transaction fee prediction project and shows the latest saved results.
+It is read-only: it reads existing CSV/JSON/SVG outputs and does not retrain models or modify data.
+
+Commands:
+/start - Introduce the project and list commands
+/help - Show this help message
+/summary - Project status, data size, model, and forecast availability
+/forecast - Next 24-hour predicted average transaction fees
+/besttime - Predicted cheapest hour in the forecast window
+/model - Best model metrics and plain-language interpretation
+/compare - Top chronological holdout model results
+/backtest - Rolling backtest summary
+/quality - Data quality notes and limitations
+/charts - Available generated chart files and what they show
+"""
+
+
+CHART_DESCRIPTIONS = {
+    "hourly_fee_trend.svg": "Hourly average fee trend across the collected feature window.",
+    "fee_distribution.svg": "Distribution of observed transaction fees.",
+    "network_activity_trend.svg": "Sampled transaction and account activity by hour.",
+    "model_r2_comparison.svg": "Chronological holdout R2 comparison by model.",
+    "rolling_backtest_r2_comparison.svg": "Rolling backtest mean R2 comparison by model.",
+    "model_mae_comparison.svg": "Chronological holdout MAE comparison by model.",
+    "actual_vs_predicted.svg": "Holdout actual next-hour fees versus model predictions.",
+    "forecast_next_24h.svg": "Recent actual fees with the generated 24-hour forecast.",
+}
+
+
+logger = logging.getLogger("ton_fee_telegram_bot")
+
+
+class DashboardError(Exception):
+    """Expected dashboard data loading error."""
+
+
+@dataclass(frozen=True)
+class ProjectPaths:
+    root: Path
+
+    @property
+    def predictions(self) -> Path:
+        return self.root / "predictions.csv"
+
+    @property
+    def hourly_features(self) -> Path:
+        return self.root / "hourly_features.csv"
+
+    @property
+    def model_metrics(self) -> Path:
+        return self.root / "models" / "model_metrics.json"
+
+    @property
+    def model_comparison(self) -> Path:
+        return self.root / "models" / "model_comparison.csv"
+
+    @property
+    def rolling_backtest(self) -> Path:
+        return self.root / "models" / "rolling_backtest.csv"
+
+    @property
+    def last_updated(self) -> Path:
+        return self.root / "last_updated.json"
+
+    @property
+    def collection_metadata(self) -> Path:
+        return self.root / "collection_metadata.json"
+
+    @property
+    def figures_dir(self) -> Path:
+        return self.root / "docs" / "figures"
+
+
+def read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise DashboardError(f"Missing file: {relative(path)}")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise DashboardError(f"Could not parse JSON file: {relative(path)} ({exc})") from exc
+
+
+def read_csv_rows(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        raise DashboardError(f"Missing file: {relative(path)}")
+    try:
+        with path.open(newline="", encoding="utf-8") as handle:
+            return list(csv.DictReader(handle))
+    except csv.Error as exc:
+        raise DashboardError(f"Could not parse CSV file: {relative(path)} ({exc})") from exc
+
+
+def read_csv_overview(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise DashboardError(f"Missing file: {relative(path)}")
+
+    try:
+        with path.open(newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            first: dict[str, str] | None = None
+            last: dict[str, str] | None = None
+            rows = 0
+            for row in reader:
+                if first is None:
+                    first = row
+                last = row
+                rows += 1
+    except csv.Error as exc:
+        raise DashboardError(f"Could not parse CSV file: {relative(path)} ({exc})") from exc
+
+    return {"rows": rows, "first": first or {}, "last": last or {}}
+
+
+def relative(path: Path) -> str:
+    try:
+        return str(path.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def to_float(value: Any, default: float | None = None) -> float | None:
+    if value in (None, ""):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def to_int(value: Any, default: int | None = None) -> int | None:
+    numeric = to_float(value)
+    if numeric is None:
+        return default
+    return int(numeric)
+
+
+def format_nanoton(value: Any) -> str:
+    numeric = to_float(value)
+    if numeric is None:
+        return "n/a"
+    return f"{numeric:,.0f} nanoton"
+
+
+def format_ton(value: Any) -> str:
+    numeric = to_float(value)
+    if numeric is None:
+        return "n/a"
+    return f"{numeric:.9f} TON"
+
+
+def nanoton_to_ton(value: Any) -> float | None:
+    numeric = to_float(value)
+    if numeric is None:
+        return None
+    return numeric / NANOTON_PER_TON
+
+
+def format_metric(value: Any, digits: int = 4) -> str:
+    numeric = to_float(value)
+    if numeric is None:
+        return "n/a"
+    return f"{numeric:.{digits}f}"
+
+
+def format_timestamp(value: Any) -> str:
+    if not value:
+        return "n/a"
+    text = str(value)
+    if text.endswith("+00:00"):
+        text = f"{text[:-6]}Z"
+    return text
+
+
+def percent_from_r2(value: Any) -> str:
+    numeric = to_float(value)
+    if numeric is None:
+        return "n/a"
+    return f"{numeric * 100:.1f}%"
+
+
+def sorted_by_float(rows: list[dict[str, str]], column: str, reverse: bool = True) -> list[dict[str, str]]:
+    def key(row: dict[str, str]) -> float:
+        value = to_float(row.get(column))
+        if value is None:
+            return float("-inf") if reverse else float("inf")
+        return value
+
+    return sorted(rows, key=key, reverse=reverse)
+
+
+class Dashboard:
+    def __init__(self, paths: ProjectPaths) -> None:
+        self.paths = paths
+
+    def start(self) -> str:
+        return (
+            "TON Fee Prediction Dashboard\n\n"
+            "This project predicts the next-hour average TON transaction fee from recent TON on-chain "
+            "transaction data collected through the TON Center API.\n\n"
+            "The bot shows saved project outputs only. It does not retrain models inside Telegram handlers.\n\n"
+            f"{HELP_TEXT.split('Commands:', 1)[1].strip()}"
+        )
+
+    def help(self) -> str:
+        return HELP_TEXT
+
+    def summary(self) -> str:
+        metadata = self._metadata()
+        hourly = read_csv_overview(self.paths.hourly_features)
+        predictions = read_csv_overview(self.paths.predictions)
+        metrics = self._safe_json(self.paths.model_metrics)
+
+        raw_rows = metadata.get("final_rows")
+        first_hour = hourly["first"].get("hour")
+        latest_feature_hour = hourly["last"].get("hour")
+        latest_raw = metadata.get("latest_iso_utc")
+        forecast_first = predictions["first"].get("forecast_hour")
+        forecast_last = predictions["last"].get("forecast_hour")
+        forecast_generated = predictions["first"].get("forecast_generated_at")
+
+        lines = [
+            "Project Summary",
+            "",
+            "What it does: predicts the next-hour average TON transaction fee from hourly on-chain features.",
+            f"Raw rows: {format_count(raw_rows)}",
+            f"Hourly feature rows: {format_count(hourly['rows'])}",
+            f"Feature date range: {format_timestamp(first_hour)} to {format_timestamp(latest_feature_hour)}",
+            f"Latest raw transaction timestamp: {format_timestamp(latest_raw)}",
+            f"Latest feature timestamp: {format_timestamp(latest_feature_hour)}",
+            f"Best model: {metrics.get('best_model_name', 'n/a')}",
+            f"Holdout R2: {format_metric(metrics.get('best_r2'))}",
+            f"Holdout MAE: {format_nanoton(metrics.get('best_mae'))}",
+            f"Forecast rows: {format_count(predictions['rows'])}",
+            f"Forecast range: {format_timestamp(forecast_first)} to {format_timestamp(forecast_last)}",
+            f"Forecast generated at: {format_timestamp(forecast_generated)}",
+            "",
+            "Important limitation: some collection windows hit TON Center API page limits, so activity counts "
+            "are sampled indicators rather than guaranteed full-chain volume.",
+        ]
+        return "\n".join(lines)
+
+    def forecast(self) -> str:
+        rows = read_csv_rows(self.paths.predictions)
+        if not rows:
+            raise DashboardError("predictions.csv has no forecast rows.")
+        rows = sorted_by_float(rows, "horizon_hours", reverse=False)
+        model_name = rows[0].get("model_name", "n/a")
+        generated = rows[0].get("forecast_generated_at")
+
+        lines = [
+            "Next 24-Hour Fee Forecast",
+            "",
+            f"Generated at: {format_timestamp(generated)}",
+            f"Model: {model_name}",
+            "",
+            "Each row is the predicted average transaction fee for that UTC hour.",
+            "",
+        ]
+        for row in rows[:24]:
+            predicted_nanoton = to_float(row.get("predicted_avg_total_fee"))
+            predicted_ton = to_float(row.get("predicted_avg_total_fee_ton"))
+            if predicted_ton is None:
+                predicted_ton = nanoton_to_ton(predicted_nanoton)
+            lines.append(
+                f"h{to_int(row.get('horizon_hours'), 0):02d} "
+                f"{format_hour(row.get('forecast_hour'))} | "
+                f"{format_nanoton(predicted_nanoton)} | {format_ton(predicted_ton)}"
+            )
+
+        lines.extend(
+            [
+                "",
+                "Interpretation: use this as a directional guide. Actual TON fees can move quickly when "
+                "network behavior changes.",
+            ]
+        )
+        return "\n".join(lines)
+
+    def besttime(self) -> str:
+        rows = read_csv_rows(self.paths.predictions)
+        if not rows:
+            raise DashboardError("predictions.csv has no forecast rows.")
+
+        numeric_rows: list[tuple[dict[str, str], float]] = []
+        for row in rows:
+            predicted_fee = to_float(row.get("predicted_avg_total_fee"))
+            if predicted_fee is not None:
+                numeric_rows.append((row, predicted_fee))
+        if not numeric_rows:
+            raise DashboardError("predictions.csv does not contain numeric predicted_avg_total_fee values.")
+
+        cheapest, cheapest_fee = min(numeric_rows, key=lambda item: item[1])
+        highest, highest_fee = max(numeric_rows, key=lambda item: item[1])
+        difference = highest_fee - cheapest_fee
+        percent = difference / highest_fee * 100 if highest_fee else 0.0
+
+        lines = [
+            "Best Predicted Time Window",
+            "",
+            f"Cheapest predicted hour: {format_timestamp(cheapest.get('forecast_hour'))}",
+            f"Predicted average fee: {format_nanoton(cheapest_fee)} ({format_ton(nanoton_to_ton(cheapest_fee))})",
+            f"Highest predicted hour in window: {format_timestamp(highest.get('forecast_hour'))}",
+            f"Difference vs highest predicted fee: {format_nanoton(difference)} "
+            f"({format_ton(nanoton_to_ton(difference))}, about {percent:.1f}% lower)",
+            "",
+            "This is the model's estimated cheapest hour, but the model should be treated as a directional "
+            "guide, not a guarantee. Actual network behavior can change quickly.",
+        ]
+        return "\n".join(lines)
+
+    def model(self) -> str:
+        metrics = read_json(self.paths.model_metrics)
+        r2 = to_float(metrics.get("best_r2"))
+        mae = to_float(metrics.get("best_mae"))
+        rmse = to_float(metrics.get("best_rmse"))
+        baseline_r2 = to_float(metrics.get("baseline_r2"))
+        r2_improvement = to_float(metrics.get("r2_improvement"))
+
+        lines = [
+            "Best Model",
+            "",
+            f"Model: {metrics.get('best_model_name', 'n/a')}",
+            f"R2: {format_metric(r2)}",
+            f"MAE: {format_nanoton(mae)}",
+            f"RMSE: {format_nanoton(rmse)}",
+            f"Baseline linear R2: {format_metric(baseline_r2)}",
+            f"R2 improvement vs baseline: {format_metric(r2_improvement)}",
+            "",
+            f"R2: the model explains about {percent_from_r2(r2)} of the variation in next-hour average fees. "
+            "That is better than the baseline here, but still low, so fee movement remains noisy and difficult "
+            "to predict.",
+            f"MAE: on average, the prediction is off by about {format_nanoton(mae)}. This is usually the most "
+            "practical error number for reading the dashboard.",
+            f"RMSE: {format_nanoton(rmse)}. RMSE penalizes large misses more than MAE, so it rises when the model "
+            "has occasional large errors.",
+        ]
+        return "\n".join(lines)
+
+    def compare(self) -> str:
+        rows = sorted_by_float(read_csv_rows(self.paths.model_comparison), "r2", reverse=True)
+        if not rows:
+            raise DashboardError("models/model_comparison.csv has no rows.")
+
+        selected = rows[0]
+        lines = [
+            "Model Comparison",
+            "",
+            "Top chronological holdout models by R2:",
+            "",
+        ]
+        for index, row in enumerate(rows[:6], start=1):
+            lines.append(
+                f"{index}. {row.get('model_name', 'n/a')} | "
+                f"R2 {format_metric(row.get('r2'))} | "
+                f"MAE {format_nanoton(row.get('mae'))} | "
+                f"RMSE {format_nanoton(row.get('rmse'))}"
+            )
+
+        lines.extend(
+            [
+                "",
+                f"Selected model: {selected.get('model_name', 'n/a')}. It is selected because it has the best "
+                "chronological holdout R2 in the saved comparison while keeping MAE/RMSE slightly better than "
+                "the baseline linear model.",
+                "Interpretation: the nonlinear boosted model performs better than linear alternatives, but the "
+                "R2 is still modest, so it should be used as a directional forecasting tool.",
+            ]
+        )
+        return "\n".join(lines)
+
+    def backtest(self) -> str:
+        rows = sorted_by_float(read_csv_rows(self.paths.rolling_backtest), "mean_r2", reverse=True)
+        if not rows:
+            raise DashboardError("models/rolling_backtest.csv has no rows.")
+
+        best = rows[0]
+        metrics = self._safe_json(self.paths.model_metrics)
+        holdout_r2 = to_float(metrics.get("best_r2"))
+        rolling_r2 = to_float(best.get("mean_r2"))
+
+        lines = [
+            "Rolling Backtest",
+            "",
+            f"Best model by mean R2: {best.get('model_name', 'n/a')}",
+            f"Mean R2: {format_metric(rolling_r2)}",
+            f"Mean MAE: {format_nanoton(best.get('mean_mae'))}",
+            f"Mean RMSE: {format_nanoton(best.get('mean_rmse'))}",
+            f"Folds: {format_count(best.get('folds'))}",
+            "",
+            "Top rolling models:",
+            "",
+        ]
+        for index, row in enumerate(rows[:5], start=1):
+            lines.append(
+                f"{index}. {row.get('model_name', 'n/a')} | "
+                f"mean R2 {format_metric(row.get('mean_r2'))} | "
+                f"mean MAE {format_nanoton(row.get('mean_mae'))}"
+            )
+
+        lines.extend(
+            [
+                "",
+                "Why this matters: rolling backtest checks whether the model works across multiple time windows "
+                "instead of only one train/test split.",
+            ]
+        )
+        if holdout_r2 is not None and rolling_r2 is not None and rolling_r2 < holdout_r2 / 2:
+            lines.append(
+                "Interpretation: rolling R2 is much lower than holdout R2. The model improves over baseline, "
+                "but performance is not stable across all time periods."
+            )
+        else:
+            lines.append(
+                "Interpretation: compare rolling metrics with holdout metrics before relying on the forecast; "
+                "higher consistency across folds means a more reliable signal."
+            )
+        return "\n".join(lines)
+
+    def quality(self) -> str:
+        metadata = self._metadata()
+        hourly = read_csv_overview(self.paths.hourly_features)
+
+        limit_hits = metadata.get("windows_with_limit_hits")
+        limit = metadata.get("limit")
+        max_pages = metadata.get("max_pages_per_window")
+
+        lines = [
+            "Data Quality And Limitations",
+            "",
+            f"Raw rows from metadata: {format_count(metadata.get('final_rows'))}",
+            f"Hourly feature rows: {format_count(hourly['rows'])}",
+            f"Feature range: {format_timestamp(hourly['first'].get('hour'))} to {format_timestamp(hourly['last'].get('hour'))}",
+            f"Latest raw transaction timestamp: {format_timestamp(metadata.get('latest_iso_utc'))}",
+            "Duplicate policy: raw transactions are de-duplicated by hash + lt.",
+            f"API page-limit hits: {format_count(limit_hits)} windows hit the configured page limit.",
+            f"Collection page settings: limit={format_count(limit)}, max_pages_per_window={format_count(max_pages)}",
+            "",
+            "Interpretation: tx_count and unique_accounts are useful sampled activity features, but they may not "
+            "represent full-chain transaction volume when page limits are hit.",
+            "Forecast reliability: the best model has positive R2, but the value is low. Use the forecast as "
+            "a directional signal, not a production-grade guarantee.",
+        ]
+        return "\n".join(lines)
+
+    def charts(self) -> str:
+        if not self.paths.figures_dir.exists():
+            raise DashboardError(f"Missing directory: {relative(self.paths.figures_dir)}")
+
+        files = sorted(
+            path
+            for path in self.paths.figures_dir.iterdir()
+            if path.is_file() and path.suffix.lower() in {".svg", ".png", ".jpg", ".jpeg"}
+        )
+        if not files:
+            return "No generated chart files were found in docs/figures/."
+
+        image_files = [path for path in files if path.suffix.lower() in {".png", ".jpg", ".jpeg"}]
+        lines = [
+            "Generated Charts",
+            "",
+            "Available chart files:",
+            "",
+        ]
+        for path in files:
+            description = CHART_DESCRIPTIONS.get(path.name, "Generated project chart.")
+            lines.append(f"- {path.name}: {description}")
+
+        if image_files:
+            lines.extend(
+                [
+                    "",
+                    "PNG/JPEG chart files can be sent by the bot. SVG files are listed as text because Telegram "
+                    "does not reliably render them as preview images.",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "",
+                    "All current charts are SVG files. This bot lists them instead of sending files because "
+                    "Telegram does not reliably render SVG as chart previews without a conversion dependency.",
+                ]
+            )
+        return "\n".join(lines)
+
+    def _metadata(self) -> dict[str, Any]:
+        if self.paths.last_updated.exists():
+            return read_json(self.paths.last_updated)
+        if self.paths.collection_metadata.exists():
+            return read_json(self.paths.collection_metadata)
+        raise DashboardError(
+            f"Missing metadata files: {relative(self.paths.last_updated)} and "
+            f"{relative(self.paths.collection_metadata)}"
+        )
+
+    def _safe_json(self, path: Path) -> dict[str, Any]:
+        if not path.exists():
+            return {}
+        return read_json(path)
+
+
+def format_count(value: Any) -> str:
+    numeric = to_int(value)
+    if numeric is None:
+        return "n/a"
+    return f"{numeric:,}"
+
+
+def format_hour(value: Any) -> str:
+    if not value:
+        return "n/a"
+    text = str(value).replace("T", " ")
+    if text.endswith(":00Z"):
+        text = text[:-4] + " UTC"
+    elif text.endswith("Z"):
+        text = text[:-1] + " UTC"
+    return text
+
+
+class TelegramClient:
+    def __init__(self, token: str, request_timeout: int = 30) -> None:
+        self.token = token
+        self.request_timeout = request_timeout
+        self.session = requests.Session()
+
+    def request(self, method: str, **payload: Any) -> dict[str, Any]:
+        url = f"https://api.telegram.org/bot{self.token}/{method}"
+        try:
+            response = self.session.post(url, data=payload, timeout=self.request_timeout)
+        except requests.RequestException as exc:
+            raise RuntimeError(f"Telegram request failed for {method}: {redact_token(str(exc), self.token)}") from exc
+
+        if response.status_code >= 400:
+            raise RuntimeError(f"Telegram API returned HTTP {response.status_code} for {method}: {response.text[:300]}")
+
+        data = response.json()
+        if not data.get("ok"):
+            raise RuntimeError(f"Telegram API returned ok=false for {method}: {str(data)[:300]}")
+        return data
+
+    def get_updates(self, offset: int | None, timeout: int = 50) -> list[dict[str, Any]]:
+        payload: dict[str, Any] = {"timeout": timeout, "allowed_updates": json.dumps(["message"])}
+        if offset is not None:
+            payload["offset"] = offset
+        data = self.request("getUpdates", **payload)
+        return data.get("result", [])
+
+    def send_message(self, chat_id: int, text: str) -> None:
+        for chunk in split_message(text):
+            self.request("sendMessage", chat_id=chat_id, text=chunk, disable_web_page_preview=True)
+
+
+def split_message(text: str) -> list[str]:
+    if len(text) <= MAX_TELEGRAM_MESSAGE_LENGTH:
+        return [text]
+
+    chunks: list[str] = []
+    current: list[str] = []
+    current_length = 0
+    for line in text.splitlines():
+        additional_length = len(line) + 1
+        if current and current_length + additional_length > MAX_TELEGRAM_MESSAGE_LENGTH:
+            chunks.append("\n".join(current))
+            current = []
+            current_length = 0
+        current.append(line)
+        current_length += additional_length
+    if current:
+        chunks.append("\n".join(current))
+    return chunks
+
+
+def redact_token(text: str, token: str | None) -> str:
+    if not token:
+        return text
+    return text.replace(token, "[redacted-token]")
+
+
+def command_name(text: str) -> str:
+    first_token = text.strip().split(maxsplit=1)[0].lower()
+    return first_token.split("@", 1)[0]
+
+
+def build_handlers(dashboard: Dashboard) -> dict[str, Callable[[], str]]:
+    return {
+        "/start": dashboard.start,
+        "/help": dashboard.help,
+        "/summary": dashboard.summary,
+        "/forecast": dashboard.forecast,
+        "/besttime": dashboard.besttime,
+        "/model": dashboard.model,
+        "/compare": dashboard.compare,
+        "/backtest": dashboard.backtest,
+        "/quality": dashboard.quality,
+        "/charts": dashboard.charts,
+    }
+
+
+def handle_message(message: dict[str, Any], handlers: dict[str, Callable[[], str]]) -> str | None:
+    text = message.get("text")
+    if not isinstance(text, str) or not text.strip().startswith("/"):
+        return None
+
+    handler = handlers.get(command_name(text))
+    if handler is None:
+        return "Unknown command. Use /help to see available dashboard commands."
+
+    try:
+        return handler()
+    except DashboardError as exc:
+        return f"Dashboard data is not available yet: {exc}"
+    except Exception:
+        logger.exception("Unexpected command handler error")
+        return "Unexpected dashboard error. Check the bot logs on the host machine."
+
+
+def run_polling(client: TelegramClient, dashboard: Dashboard, poll_timeout: int) -> None:
+    handlers = build_handlers(dashboard)
+    offset: int | None = None
+    logger.info("TON fee Telegram dashboard is running.")
+
+    while True:
+        try:
+            updates = client.get_updates(offset=offset, timeout=poll_timeout)
+        except Exception as exc:
+            logger.error("Polling failed: %s", redact_token(str(exc), client.token))
+            time.sleep(5)
+            continue
+
+        for update in updates:
+            update_id = update.get("update_id")
+            if isinstance(update_id, int):
+                offset = update_id + 1
+
+            message = update.get("message")
+            if not isinstance(message, dict):
+                continue
+            chat = message.get("chat")
+            if not isinstance(chat, dict) or "id" not in chat:
+                continue
+
+            response = handle_message(message, handlers)
+            if response is None:
+                continue
+
+            try:
+                client.send_message(chat_id=chat["id"], text=response)
+            except Exception as exc:
+                logger.error("sendMessage failed: %s", redact_token(str(exc), client.token))
+
+
+def validate_dashboard(dashboard: Dashboard) -> int:
+    checks = [
+        ("/start", dashboard.start),
+        ("/help", dashboard.help),
+        ("/summary", dashboard.summary),
+        ("/forecast", dashboard.forecast),
+        ("/besttime", dashboard.besttime),
+        ("/model", dashboard.model),
+        ("/compare", dashboard.compare),
+        ("/backtest", dashboard.backtest),
+        ("/quality", dashboard.quality),
+        ("/charts", dashboard.charts),
+    ]
+
+    failures = 0
+    for name, handler in checks:
+        try:
+            text = handler()
+        except Exception as exc:
+            failures += 1
+            print(f"{name}: FAIL - {exc}")
+            continue
+        print(f"{name}: OK ({len(split_message(text))} Telegram message chunk(s), {len(text)} characters)")
+
+    if failures:
+        print(f"Validation failed: {failures} command(s) could not be rendered.")
+        return 1
+    print("Validation OK: dashboard commands rendered from existing output files.")
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--project-root", default=str(PROJECT_ROOT), help="TON fee prediction project root.")
+    parser.add_argument("--validate", action="store_true", help="Render dashboard commands locally without Telegram.")
+    parser.add_argument("--poll-timeout", type=int, default=50, help="Telegram long-poll timeout in seconds.")
+    return parser
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+    paths = ProjectPaths(root=Path(args.project_root).resolve())
+    dashboard = Dashboard(paths)
+
+    if args.validate:
+        return validate_dashboard(dashboard)
+
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    if not token:
+        print("TELEGRAM_BOT_TOKEN is not set. Refusing to start the Telegram bot.", file=sys.stderr)
+        return 2
+
+    poll_timeout = max(1, int(args.poll_timeout))
+    client = TelegramClient(token=token)
+    run_polling(client, dashboard, poll_timeout=poll_timeout)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

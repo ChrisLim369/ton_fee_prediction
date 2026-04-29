@@ -261,6 +261,114 @@ docs/model_evaluation_report.md
 
 CSV 결과를 SVG 그래프로 생성합니다. 별도 plotting 라이브러리 없이 동작합니다.
 
+### src/telegram_bot.py
+
+저장된 결과 파일을 읽어서 Telegram 챗봇 대시보드로 보여줍니다. Telegram 요청 안에서 모델을 재학습하거나 CSV/JSON 결과 파일을 수정하지 않습니다.
+
+실행:
+
+```bash
+cd /Users/changhyuklim/ton_fee_prediction
+export TELEGRAM_BOT_TOKEN="your_token_here"
+python3 src/telegram_bot.py
+```
+
+로컬 검증:
+
+```bash
+python3 -m py_compile src/telegram_bot.py
+python3 src/telegram_bot.py --validate
+```
+
+주요 명령어:
+
+```text
+/summary
+/forecast
+/besttime
+/model
+/compare
+/backtest
+/quality
+/charts
+```
+
+자세한 설명은 `docs/telegram_bot.md`를 참고하세요. Telegram bot token은 환경변수에서만 읽고 코드나 문서에 저장하지 마세요.
+
+### Netlify Telegram webhook
+
+Mac 터미널을 계속 켜두지 않고 24시간 운영하려면 Netlify Function webhook을 사용합니다.
+
+추가된 파일:
+
+```text
+netlify.toml
+netlify/functions/telegram-webhook.mts
+package.json
+package-lock.json
+tsconfig.json
+```
+
+파일 역할:
+
+```text
+src/telegram_bot.py
+- 로컬 polling 방식 Telegram 봇입니다.
+- Mac이나 VPS에서 프로세스를 계속 켜둘 때 사용합니다.
+
+netlify/functions/telegram-webhook.mts
+- Netlify에서 24시간 동작하는 Telegram webhook 함수입니다.
+- Telegram POST update를 받아 dashboard 응답을 보냅니다.
+
+netlify.toml
+- Netlify 배포 설정입니다.
+- 함수에 포함할 predictions.csv, hourly_features.csv, model 결과 파일, docs/figures 파일을 지정합니다.
+- raw_transactions.csv는 포함하지 않습니다.
+
+package.json / package-lock.json
+- Netlify Function TypeScript 검증에 필요한 Node dependency와 npm script를 관리합니다.
+
+tsconfig.json
+- Netlify Function TypeScript 컴파일 설정입니다.
+
+docs/telegram_bot.md
+- 로컬 실행, Netlify 배포, webhook 등록, 명령어, 보안 주의사항을 정리한 상세 설명서입니다.
+```
+
+Netlify 환경변수:
+
+```text
+TELEGRAM_BOT_TOKEN=BotFather에서 받은 토큰
+TELEGRAM_WEBHOOK_SECRET=긴 랜덤 문자열(선택이지만 권장)
+```
+
+배포 후 webhook URL:
+
+```text
+https://ton-fee-forecast.netlify.app/telegram-webhook
+```
+
+Telegram webhook 등록:
+
+```bash
+export TELEGRAM_BOT_TOKEN="your_token_here"
+export TELEGRAM_WEBHOOK_SECRET="a_long_random_secret"
+export NETLIFY_BOT_URL="https://ton-fee-forecast.netlify.app/telegram-webhook"
+
+curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
+  -d "url=${NETLIFY_BOT_URL}" \
+  -d "secret_token=${TELEGRAM_WEBHOOK_SECRET}"
+```
+
+Netlify 함수 검증:
+
+```bash
+npm install
+npm run check:netlify
+```
+
+같은 Telegram bot token으로 로컬 polling 봇과 Netlify webhook을 동시에 운영하지 마세요. Netlify로 운영할 때는 로컬 `src/telegram_bot.py` 프로세스를 중지하세요.
+
 ## 기본 실행 명령어
 
 프로젝트 폴더 이동:
