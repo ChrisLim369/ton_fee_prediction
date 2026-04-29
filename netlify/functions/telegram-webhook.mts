@@ -48,19 +48,11 @@ export default async (req: Request, context: Context) => {
       status: "ok",
       service: "TON fee prediction Telegram webhook",
       commands: [
-        "/start",
-        "/help",
-        "/summary",
         "/forecast",
-        "/status",
         "/besttime",
         "/timezone",
-        "/model",
-        "/compare",
-        "/backtest",
-        "/quality",
-        "/charts",
       ],
+      note: "Only user-facing commands are listed. Internal diagnostics remain callable when typed directly.",
     });
   }
 
@@ -161,13 +153,9 @@ class Dashboard {
 
   start(): string {
     return [
-      "TON Fee Prediction Dashboard",
+      "TON Fee Forecast Bot",
       "",
-      "This project predicts the next-hour average TON transaction fee from recent TON on-chain transaction data collected through the TON Center API.",
-      "",
-      "The bot shows saved project outputs only. It does not retrain models inside Telegram handlers.",
-      "",
-      "Times are shown in the detected Telegram language timezone when possible. You can override with an IANA timezone, for example: /forecast Asia/Seoul",
+      "I estimate the next 24 hours of TON transaction fees using recent on-chain activity.",
       "",
       commandList(),
     ].join("\n");
@@ -175,10 +163,9 @@ class Dashboard {
 
   help(): string {
     return [
-      "TON Fee Prediction Dashboard",
+      "TON Fee Forecast Bot",
       "",
-      "This bot explains the TON transaction fee prediction project and shows the latest saved results.",
-      "It is read-only: it reads existing CSV/JSON/SVG outputs and does not retrain models or modify data.",
+      "I estimate the next 24 hours of TON transaction fees using recent on-chain activity.",
       "",
       commandList(),
     ].join("\n");
@@ -640,21 +627,14 @@ function splitMessage(text: string): string[] {
 function commandList(): string {
   return [
     "Commands:",
-    "/start - Introduce the project and list commands",
-    "/help - Show this help message",
-    "/summary - Project status, data size, model, and forecast availability",
     "/forecast - Next 24-hour predicted average transaction fees",
-    "/status - Forecast freshness and automated update status",
-    "/besttime - Predicted cheapest hour in the forecast window",
+    "/besttime - Estimated cheapest hour to send a transaction",
     "/timezone - Show timezone detection and override examples",
-    "/model - Best model metrics and plain-language interpretation",
-    "/compare - Top chronological holdout model results",
-    "/backtest - Rolling backtest summary",
-    "/quality - Data quality notes and limitations",
-    "/charts - Available generated chart files and what they show",
     "",
     "Times are shown in the detected Telegram language timezone when possible.",
     "You can override it by adding an IANA timezone, for example: /forecast Asia/Seoul",
+    "",
+    "Forecasts are directional estimates, not guarantees.",
   ].join("\n");
 }
 

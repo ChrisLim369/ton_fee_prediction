@@ -105,9 +105,15 @@ Set `TELEGRAM_BOT_TOKEN` in Netlify environment variables, deploy this repositor
 
 The bot reads existing output files such as `predictions.csv`, `hourly_features.csv`, `models/model_metrics.json`, `models/model_comparison.csv`, and `models/rolling_backtest.csv`. It does not retrain models or modify data inside Telegram request handlers.
 
-`/forecast` includes forecast freshness metadata, and `/status` reports the latest automated update time, forecast age, latest feature hour, and stale/fresh status.
+User-facing commands are intentionally minimal:
 
-Forecast, best-time, status, summary, and quality timestamps are displayed in the detected Telegram language timezone when possible. Users can override the display timezone per command, for example `/forecast Asia/Seoul` or `/besttime America/New_York`.
+```text
+/forecast
+/besttime
+/timezone
+```
+
+Forecast and best-time timestamps are displayed in the detected Telegram language timezone when possible. Users can override the display timezone per command, for example `/forecast Asia/Seoul` or `/besttime America/New_York`.
 
 Validate locally without starting Telegram polling:
 

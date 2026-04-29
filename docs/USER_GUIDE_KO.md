@@ -283,11 +283,16 @@ python3 src/telegram_bot.py --validate
 주요 명령어:
 
 ```text
-/summary
 /forecast
-/status
 /besttime
 /timezone
+```
+
+일반 사용자에게는 위 3개 명령어만 노출합니다. 아래 명령어들은 프로젝트 운영/검증용으로 계속 동작하지만 `/start`, `/help`에는 표시하지 않습니다.
+
+```text
+/summary
+/status
 /model
 /compare
 /backtest
