@@ -74,6 +74,61 @@ Local cron example:
 
 See `docs/automation.md` for the full hourly update, daily retraining, and GitHub Actions schedule.
 
+Automated hosted refresh:
+
+- `.github/workflows/hourly_forecast_update.yml` refreshes recent data, `hourly_features.csv`, `predictions.csv`, and charts every hour.
+- `.github/workflows/daily_model_retrain.yml` refreshes recent data, retrains the model suite daily, regenerates forecasts, and updates model artifacts.
+- `src/refresh_forecast_outputs.py` is the CI-safe refresh entry point. It collects only a recent temporary raw window, merges hourly aggregates into the committed lightweight feature history, and never commits `raw_transactions.csv`.
+- Netlify must be connected to GitHub or a `NETLIFY_BUILD_HOOK_URL` GitHub secret must be configured so committed forecast outputs trigger a fresh deploy.
+
+See `docs/automation_forecast_refresh.md` for the deployed Telegram forecast refresh architecture.
+
+## Telegram Bot Dashboard
+
+The project includes a read-only Telegram chatbot dashboard that explains the project, shows the latest saved forecast, summarizes model performance, and documents data quality limitations.
+
+Local polling mode:
+
+```bash
+cd /Users/changhyuklim/ton_fee_prediction
+export TELEGRAM_BOT_TOKEN="your_token_here"
+python3 src/telegram_bot.py
+```
+
+Netlify hosted webhook mode:
+
+```text
+https://ton-fee-forecast.netlify.app/telegram-webhook
+```
+
+Set `TELEGRAM_BOT_TOKEN` in Netlify environment variables, deploy this repository, then register the Telegram webhook with BotFather's token through the Telegram `setWebhook` API. Optional `TELEGRAM_WEBHOOK_SECRET` is supported for webhook request validation.
+
+The bot reads existing output files such as `predictions.csv`, `hourly_features.csv`, `models/model_metrics.json`, `models/model_comparison.csv`, and `models/rolling_backtest.csv`. It does not retrain models or modify data inside Telegram request handlers.
+
+`/forecast` includes forecast freshness metadata, and `/status` reports the latest automated update time, forecast age, latest feature hour, and stale/fresh status.
+
+Validate locally without starting Telegram polling:
+
+```bash
+python3 -m py_compile src/telegram_bot.py
+python3 src/telegram_bot.py --validate
+npm run check:netlify
+```
+
+See `docs/telegram_bot.md` for commands and operational notes.
+
+Telegram and Netlify files:
+
+- `src/telegram_bot.py`: local polling version for development or Mac/VPS operation.
+- `netlify/functions/telegram-webhook.mts`: hosted Telegram webhook function for Netlify.
+- `src/refresh_forecast_outputs.py`: GitHub Actions-safe refresh script for hourly forecast outputs without committing the full raw CSV.
+- `.github/workflows/hourly_forecast_update.yml`: hourly lightweight forecast refresh workflow.
+- `.github/workflows/daily_model_retrain.yml`: daily retraining and model artifact refresh workflow.
+- `netlify.toml`: Netlify build/function settings and included dashboard artifact files.
+- `package.json`, `package-lock.json`, `tsconfig.json`: TypeScript validation and Netlify Function dependency metadata.
+- `docs/telegram_bot.md`: full dashboard, deployment, webhook, and troubleshooting guide.
+- `docs/automation_forecast_refresh.md`: automated forecast refresh and Netlify redeploy guide.
+
 ## Outputs
 
 - `raw_transactions.csv`: transaction-level rows.
@@ -94,4 +149,5 @@ See `docs/automation.md` for the full hourly update, daily retraining, and GitHu
 - `actual_vs_predicted.csv`: test-period actual vs predicted values for the selected best model.
 - `docs/model_evaluation_report.md`: short model evaluation summary.
 - `docs/visualizations.md`: Markdown page linking generated SVG charts.
+- `docs/telegram_bot.md`: Telegram chatbot dashboard guide.
 - `docs/figures/`: generated SVG charts for fees, model comparisons, backtests, and forecasts.

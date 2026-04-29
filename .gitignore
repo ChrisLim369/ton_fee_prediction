@@ -1,9 +1,12 @@
 raw_transactions.csv
 .raw_transactions.csv.tmp
-.github/workflows/update_data.yml
+.automation_*.csv
+.automation_*.json
 .DS_Store
 __pycache__/
 *.pyc
 .venv/
 venv/
 *.log
+node_modules/
+.netlify/

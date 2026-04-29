@@ -1,0 +1,14 @@
+{
+  "name": "ton-fee-prediction",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:netlify": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@netlify/functions": "^5.2.0",
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3"
+  }
+}

@@ -213,8 +213,17 @@ def bar_chart(
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def histogram_svg(path: Path, fees: pd.Series) -> None:
+def histogram_svg(
+    path: Path,
+    fees: pd.Series,
+    title: str = "Transaction fee distribution",
+    subtitle: str = "Histogram of log10(total_fees), zero-fee transactions excluded",
+    source: str = "Source: raw_transactions.csv",
+) -> None:
     positive = fees[fees > 0].dropna()
+    if positive.empty:
+        path.write_text("\n".join(svg_header(980, 430, title, "No positive fee values available")) + "\n</svg>\n")
+        return
     log_values = positive.map(lambda v: math.log10(float(v)))
     bins = 28
     min_v, max_v = float(log_values.min()), float(log_values.max())
@@ -226,13 +235,13 @@ def histogram_svg(path: Path, fees: pd.Series) -> None:
     labels = [f"1e{min_v + (i + 0.5) * width:.1f}" for i in range(bins)]
     bar_chart(
         path,
-        "Transaction fee distribution",
-        "Histogram of log10(total_fees), zero-fee transactions excluded",
+        title,
+        subtitle,
         labels,
         counts,
         [BLUE] * bins,
         "transactions",
-        "Source: raw_transactions.csv",
+        source,
         width=980,
         height=430,
     )
@@ -271,7 +280,7 @@ def main() -> None:
     )
     actual_vs_predicted = pd.read_csv(ROOT / "actual_vs_predicted.csv")
     predictions = pd.read_csv(ROOT / "predictions.csv")
-    raw_fees = pd.read_csv(ROOT / "raw_transactions.csv", usecols=["total_fees"])["total_fees"]
+    raw_path = ROOT / "raw_transactions.csv"
 
     line_chart(
         FIGURES / "hourly_fee_trend.svg",
@@ -311,7 +320,21 @@ def main() -> None:
     )
 
     forecast_chart(FIGURES / "forecast_next_24h.svg", hourly, predictions)
-    histogram_svg(FIGURES / "fee_distribution.svg", raw_fees)
+    if raw_path.exists():
+        raw_fees = pd.read_csv(raw_path, usecols=["total_fees"])["total_fees"]
+        histogram_svg(FIGURES / "fee_distribution.svg", raw_fees)
+        fee_distribution_source = "raw_transactions.csv"
+        fee_distribution_rows = int(len(raw_fees))
+    else:
+        histogram_svg(
+            FIGURES / "fee_distribution.svg",
+            hourly["avg_total_fee"],
+            title="Hourly average fee distribution",
+            subtitle="Histogram of log10(hourly avg_total_fee); raw transaction CSV unavailable in CI",
+            source="Source: hourly_features.csv",
+        )
+        fee_distribution_source = "hourly_features.csv"
+        fee_distribution_rows = int(len(hourly))
 
     top_models = comparison.head(8).copy()
     bar_chart(
@@ -356,7 +379,8 @@ def main() -> None:
             "figures": str(FIGURES),
             "charts": sorted(path.name for path in FIGURES.glob("*.svg")),
             "hourly_rows": int(len(hourly)),
-            "raw_rows": int(len(raw_fees)),
+            "fee_distribution_source": fee_distribution_source,
+            "fee_distribution_rows": fee_distribution_rows,
             "best_model": str(comparison.iloc[0]["model_name"]),
             "best_r2": float(comparison.iloc[0]["r2"]),
         }

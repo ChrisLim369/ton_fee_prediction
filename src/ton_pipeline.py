@@ -559,6 +559,24 @@ def build_hourly_features(raw_df: pd.DataFrame) -> pd.DataFrame:
         total_transaction_value=("transaction_value", "sum"),
     ).reset_index()
 
+    return recompute_hourly_derived_features(hourly)
+
+
+def recompute_hourly_derived_features(hourly_df: pd.DataFrame) -> pd.DataFrame:
+    """Recompute lag, rolling, calendar, and target columns for hourly rows.
+
+    This is used after merging freshly collected recent hourly aggregates into
+    the committed lightweight history, where raw transaction history is not
+    available in CI.
+    """
+    hourly = hourly_df.copy()
+    if "hour" not in hourly.columns:
+        raise ValueError("hourly feature dataset must include an hour column")
+
+    hourly["hour"] = pd.to_datetime(hourly["hour"], utc=True)
+    hourly = hourly.drop_duplicates(subset=["hour"], keep="last")
+    hourly = hourly.sort_values("hour").reset_index(drop=True)
+
     hourly["hour_of_day"] = hourly["hour"].dt.hour
     hourly["day_of_week"] = hourly["hour"].dt.dayofweek
     hourly["is_weekend"] = hourly["day_of_week"].isin([5, 6]).astype(int)
@@ -589,8 +607,13 @@ def build_hourly_features(raw_df: pd.DataFrame) -> pd.DataFrame:
     hourly["day_cos"] = np.cos(2 * np.pi * hourly["day_of_week"] / 7)
 
     hourly["target_next_hour_avg_fee"] = hourly["avg_total_fee"].shift(-1)
-    hourly["std_total_fee"] = hourly["std_total_fee"].fillna(0)
-    hourly = hourly.sort_values("hour").reset_index(drop=True)
+    if "std_total_fee" in hourly.columns:
+        hourly["std_total_fee"] = hourly["std_total_fee"].fillna(0)
+
+    for column in HOURLY_COLUMNS:
+        if column not in hourly.columns:
+            hourly[column] = np.nan
+
     hourly["hour"] = hourly["hour"].dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     return hourly[HOURLY_COLUMNS]
 
