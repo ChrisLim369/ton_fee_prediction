@@ -1,0 +1,104 @@
+# Data Dictionary
+
+All fee and value fields are stored in nanoton unless noted otherwise.
+
+## raw_transactions.csv
+
+- `hash`: Transaction hash from TON Center v3.
+- `now`: Transaction generation Unix timestamp in UTC seconds.
+- `account`: Account address associated with the transaction.
+- `lt`: Logical time of the transaction.
+- `mc_block_seqno`: Masterchain block sequence number.
+- `total_fees`: Total transaction fees in nanoton.
+- `compute_gas_used`: Compute phase gas units used.
+- `compute_gas_fees`: Compute phase gas fees in nanoton.
+- `storage_fees_collected`: Storage phase fees collected in nanoton.
+- `storage_fees_due`: Storage phase fees due in nanoton.
+- `total_action_fees`: Action phase total action fees in nanoton.
+- `total_fwd_fees`: Action phase total forward fees in nanoton.
+- `in_msg_import_fee`: Inbound message import fee in nanoton.
+- `in_msg_fwd_fee`: Inbound message forward fee in nanoton.
+- `out_msg_fwd_fee_sum`: Sum of outbound message forward fees in nanoton.
+- `out_msg_count`: Number of outbound messages emitted by the transaction.
+- `vm_steps`: TON VM steps executed in the compute phase.
+- `msgs_created`: Number of messages created by the action phase.
+- `tot_actions`: Total number of action phase actions.
+- `msg_size_bits`: Total action message size in bits.
+- `msg_size_cells`: Total action message size in cells.
+- `aborted`: True when the transaction description marks the transaction aborted.
+- `compute_success`: True when the compute phase succeeded; blank if no compute phase was present.
+- `action_success`: True when the action phase succeeded; blank if no action phase was present.
+- `transaction_type`: TON transaction description type.
+- `account_type`: Account status before the transaction when available.
+- `bounce`: Inbound message bounce flag when an inbound message exists.
+- `destroyed`: True when the transaction destroyed the account.
+- `balance_change`: Account balance after minus before in nanoton.
+- `transaction_value`: Inbound plus outbound message value throughput in nanoton.
+- `in_msg_value`: Inbound message value in nanoton.
+- `out_msg_value_sum`: Sum of outbound message values in nanoton.
+
+## hourly_features.csv
+
+- `hour`: UTC hour bucket start timestamp.
+- `tx_count`: Number of raw transactions in the hourly bucket.
+- `unique_accounts`: Number of unique account addresses in the hourly bucket.
+- `avg_total_fee`: Mean total_fees per transaction in nanoton.
+- `median_total_fee`: Median total_fees per transaction in nanoton.
+- `p90_total_fee`: 90th percentile total_fees per transaction in nanoton.
+- `min_total_fee`: Minimum total_fees in nanoton.
+- `max_total_fee`: Maximum total_fees in nanoton.
+- `std_total_fee`: Sample standard deviation of total_fees in nanoton.
+- `avg_gas_used`: Mean compute_gas_used.
+- `median_gas_used`: Median compute_gas_used.
+- `avg_compute_fee`: Mean compute_gas_fees in nanoton.
+- `avg_storage_fee`: Mean storage_fees_collected in nanoton.
+- `avg_action_fee`: Mean total_action_fees in nanoton.
+- `avg_forward_fee`: Mean of total_fwd_fees plus outbound forward fee sum in nanoton.
+- `avg_import_fee`: Mean inbound import fee in nanoton.
+- `avg_vm_steps`: Mean VM steps.
+- `avg_msgs_created`: Mean messages created.
+- `avg_out_msg_count`: Mean outbound message count.
+- `avg_msg_size_bits`: Mean total action message size in bits.
+- `avg_msg_size_cells`: Mean total action message size in cells.
+- `failed_tx_ratio`: Mean aborted flag per hour.
+- `compute_success_ratio`: Mean compute_success flag per hour, skipping missing phases.
+- `action_success_ratio`: Mean action_success flag per hour, skipping missing phases.
+- `avg_transaction_value`: Mean transaction_value in nanoton.
+- `total_transaction_value`: Sum transaction_value in nanoton.
+- `hour_of_day`: UTC hour number, 0-23.
+- `day_of_week`: UTC day of week, Monday=0.
+- `is_weekend`: 1 for Saturday/Sunday UTC, otherwise 0.
+- `fee_lag_1h`: avg_total_fee shifted back 1 hourly row.
+- `fee_lag_3h`: avg_total_fee shifted back 3 hourly rows.
+- `fee_lag_6h`: avg_total_fee shifted back 6 hourly rows.
+- `fee_lag_12h`: avg_total_fee shifted back 12 hourly rows.
+- `fee_lag_24h`: avg_total_fee shifted back 24 hourly rows.
+- `rolling_avg_fee_3h`: Prior 3-hour rolling mean of avg_total_fee.
+- `rolling_avg_fee_6h`: Prior 6-hour rolling mean of avg_total_fee.
+- `rolling_avg_fee_12h`: Prior 12-hour rolling mean of avg_total_fee.
+- `rolling_avg_fee_24h`: Prior 24-hour rolling mean of avg_total_fee.
+- `rolling_std_fee_6h`: Prior 6-hour rolling standard deviation of avg_total_fee.
+- `rolling_std_fee_24h`: Prior 24-hour rolling standard deviation of avg_total_fee.
+- `fee_change_1h`: Current avg_total_fee minus avg_total_fee from 1 hourly row earlier.
+- `fee_change_3h`: Current avg_total_fee minus avg_total_fee from 3 hourly rows earlier.
+- `fee_change_6h`: Current avg_total_fee minus avg_total_fee from 6 hourly rows earlier.
+- `fee_change_12h`: Current avg_total_fee minus avg_total_fee from 12 hourly rows earlier.
+- `fee_change_24h`: Current avg_total_fee minus avg_total_fee from 24 hourly rows earlier.
+- `tx_count_change_1h`: Current tx_count minus tx_count from 1 hourly row earlier.
+- `tx_count_change_3h`: Current tx_count minus tx_count from 3 hourly rows earlier.
+- `tx_count_change_6h`: Current tx_count minus tx_count from 6 hourly rows earlier.
+- `tx_count_change_24h`: Current tx_count minus tx_count from 24 hourly rows earlier.
+- `gas_used_change_1h`: Current avg_gas_used minus avg_gas_used from 1 hourly row earlier.
+- `gas_used_change_3h`: Current avg_gas_used minus avg_gas_used from 3 hourly rows earlier.
+- `gas_used_change_6h`: Current avg_gas_used minus avg_gas_used from 6 hourly rows earlier.
+- `gas_used_change_24h`: Current avg_gas_used minus avg_gas_used from 24 hourly rows earlier.
+- `p90_fee_change_1h`: Current p90_total_fee minus p90_total_fee from 1 hourly row earlier.
+- `p90_fee_change_3h`: Current p90_total_fee minus p90_total_fee from 3 hourly rows earlier.
+- `p90_fee_change_6h`: Current p90_total_fee minus p90_total_fee from 6 hourly rows earlier.
+- `p90_fee_change_24h`: Current p90_total_fee minus p90_total_fee from 24 hourly rows earlier.
+- `same_hour_prev_day_fee`: avg_total_fee from the same UTC hour on the previous day.
+- `hour_sin`: Sine encoding of UTC hour of day.
+- `hour_cos`: Cosine encoding of UTC hour of day.
+- `day_sin`: Sine encoding of UTC day of week.
+- `day_cos`: Cosine encoding of UTC day of week.
+- `target_next_hour_avg_fee`: Next hourly row's avg_total_fee in nanoton.

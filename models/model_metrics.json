@@ -1,0 +1,15 @@
+{
+  "model": "/Users/changhyuklim/ton_fee_prediction/models/best_model.json",
+  "best_model_name": "gradient_boosted_stumps_200_lr_0_03",
+  "best_r2": 0.0994930202245764,
+  "best_mae": 159571.70304884834,
+  "best_rmse": 214449.4676660896,
+  "baseline_r2": -0.005070955573567071,
+  "baseline_mae": 165618.41267180684,
+  "baseline_rmse": 226558.20352691566,
+  "train_rows": 580,
+  "test_rows": 145,
+  "r2_improvement": 0.10456397579814347,
+  "mae_improvement": 6046.7096229585,
+  "rmse_improvement": 12108.73586082607
+}

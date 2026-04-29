@@ -1,0 +1,9 @@
+raw_transactions.csv
+.raw_transactions.csv.tmp
+.github/workflows/update_data.yml
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.log
