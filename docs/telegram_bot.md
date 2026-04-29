@@ -106,8 +106,9 @@ Open your Telegram bot username and send:
 
 ```text
 /start
-/summary
 /forecast
+/besttime
+/timezone
 ```
 
 The same Telegram bot token should not be used by both the local polling script and the Netlify webhook at the same time. For hosted operation, stop the local polling process after registering the webhook.
@@ -134,19 +135,12 @@ npm run check:netlify
 ## Commands
 
 ```text
-/start
-/help
-/summary
 /forecast
-/status
 /besttime
 /timezone
-/model
-/compare
-/backtest
-/quality
-/charts
 ```
+
+The bot still supports internal diagnostic commands when typed directly, but `/start`, `/help`, and the webhook health response intentionally show only the user-facing commands above.
 
 ## Timezone Display
 
@@ -196,15 +190,29 @@ Automation:
 
 ## Command Details
 
-`/summary` shows the data size, feature range, latest raw transaction timestamp, current best model, forecast availability, and the sampled-coverage limitation.
-
 `/forecast` shows the next 24 saved forecast rows with the display timezone, predicted average fee in nanoton, predicted fee in TON, model name, forecast generation time, forecast range, latest feature hour, latest raw transaction timestamp, forecast age, and a stale/fresh warning.
-
-`/status` shows the automated refresh state, last data update time, forecast generation time, forecast age, latest feature hour, latest raw transaction timestamp, recent CI raw sample size, known full raw row count, and stale/fresh status.
 
 `/besttime` finds the lowest predicted average fee in `predictions.csv`, compares it with the highest predicted fee in the same forecast window, and explains that the result is directional rather than guaranteed.
 
 `/timezone` explains timezone detection and shows examples for overriding the displayed timezone.
+
+## Internal Diagnostic Commands
+
+These commands remain available for project owner/debugging use, but they are hidden from the public command list to keep the bot simple for normal users:
+
+```text
+/summary
+/status
+/model
+/compare
+/backtest
+/quality
+/charts
+```
+
+`/summary` shows the data size, feature range, latest raw transaction timestamp, current best model, forecast availability, and the sampled-coverage limitation.
+
+`/status` shows the automated refresh state, last data update time, forecast generation time, forecast age, latest feature hour, latest raw transaction timestamp, recent CI raw sample size, known full raw row count, and stale/fresh status.
 
 `/model` shows the best saved model, R2, MAE, RMSE, baseline R2, and R2 improvement. It also explains the metrics in practical language.
 

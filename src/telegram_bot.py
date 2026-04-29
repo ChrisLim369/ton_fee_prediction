@@ -25,27 +25,19 @@ NANOTON_PER_TON = 1_000_000_000
 FORECAST_STALE_HOURS = 6
 
 
-HELP_TEXT = """TON Fee Prediction Dashboard
+HELP_TEXT = """TON Fee Forecast Bot
 
-This bot explains the TON transaction fee prediction project and shows the latest saved results.
-It is read-only: it reads existing CSV/JSON/SVG outputs and does not retrain models or modify data.
+I estimate the next 24 hours of TON transaction fees using recent on-chain activity.
 
 Commands:
-/start - Introduce the project and list commands
-/help - Show this help message
-/summary - Project status, data size, model, and forecast availability
 /forecast - Next 24-hour predicted average transaction fees
-/status - Forecast freshness and automated update status
-/besttime - Predicted cheapest hour in the forecast window
+/besttime - Estimated cheapest hour to send a transaction
 /timezone - Show timezone detection and override examples
-/model - Best model metrics and plain-language interpretation
-/compare - Top chronological holdout model results
-/backtest - Rolling backtest summary
-/quality - Data quality notes and limitations
-/charts - Available generated chart files and what they show
 
 Times are shown in the detected Telegram language timezone when possible.
 You can override it by adding an IANA timezone, for example: /forecast Asia/Seoul
+
+Forecasts are directional estimates, not guarantees.
 """
 
 
@@ -369,15 +361,7 @@ class Dashboard:
         self.paths = paths
 
     def start(self) -> str:
-        return (
-            "TON Fee Prediction Dashboard\n\n"
-            "This project predicts the next-hour average TON transaction fee from recent TON on-chain "
-            "transaction data collected through the TON Center API.\n\n"
-            "The bot shows saved project outputs only. It does not retrain models inside Telegram handlers.\n\n"
-            "Times are shown in the detected Telegram language timezone when possible. You can override with "
-            "an IANA timezone, for example: /forecast Asia/Seoul\n\n"
-            f"{HELP_TEXT.split('Commands:', 1)[1].strip()}"
-        )
+        return HELP_TEXT
 
     def help(self) -> str:
         return HELP_TEXT
