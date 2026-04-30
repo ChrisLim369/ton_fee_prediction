@@ -60,7 +60,7 @@ python src/train_model.py
 
 The best model is written to `models/best_model.json`, and forecasts use that file by default.
 
-Generate SVG charts:
+Generate SVG/PNG charts:
 
 ```bash
 python scripts/generate_charts.py
@@ -158,4 +158,4 @@ Telegram and Netlify files:
 - `docs/model_evaluation_report.md`: short model evaluation summary.
 - `docs/visualizations.md`: Markdown page linking generated SVG charts.
 - `docs/telegram_bot.md`: Telegram chatbot dashboard guide.
-- `docs/figures/`: generated SVG charts for fees, model comparisons, backtests, and forecasts.
+- `docs/figures/`: generated SVG diagnostics and `forecast_next_24h.png`, which Telegram sends for `/forecast`.

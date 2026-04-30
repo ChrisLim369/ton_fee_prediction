@@ -41,6 +41,13 @@ type TimeContext = {
   timezone: string;
   source: string;
 };
+type ForecastStats = {
+  rows: CsvRow[];
+  cheapest: { row: CsvRow; fee: number };
+  highest: { row: CsvRow; fee: number };
+  difference: number;
+  percent: number;
+};
 
 export default async (req: Request, context: Context) => {
   if (req.method === "GET") {
@@ -93,6 +100,13 @@ export default async (req: Request, context: Context) => {
   }
 
   await sendTelegramMessage(token, chatId, responseText);
+  if (commandName(update.message?.text ?? "") === "/forecast") {
+    try {
+      await sendTelegramPhoto(token, chatId, `${new URL(req.url).origin}/figures/forecast_next_24h.png`, "24-hour forecast chart");
+    } catch (error) {
+      console.error("Forecast chart send failed:", error);
+    }
+  }
   return jsonResponse({ ok: true });
 };
 
@@ -203,44 +217,39 @@ class Dashboard {
     if (rows.length === 0) {
       throw new DashboardError("predictions.csv has no forecast rows.");
     }
+    const stats = forecastStats(rows);
+    const freshness = freshnessStatus(rows[0].forecast_generated_at, rows[rows.length - 1].forecast_hour);
+    const topCheapest = stats.rows
+      .map((row) => ({ row, fee: toNumber(row.predicted_avg_total_fee) }))
+      .filter((item): item is { row: CsvRow; fee: number } => item.fee !== null)
+      .sort((left, right) => left.fee - right.fee)
+      .slice(0, 3);
 
     const lines = [
-      "Next 24-Hour Fee Forecast",
+      "TON Fee Forecast",
       "",
       timeContextNote(timeContext),
-      `Generated at: ${formatTimestamp(rows[0].forecast_generated_at, timeContext)}`,
-      `Forecast range: ${formatTimestamp(rows[0].forecast_hour, timeContext)} to ${formatTimestamp(rows[rows.length - 1].forecast_hour, timeContext)}`,
-      `Latest feature hour: ${formatTimestamp((await readCsvOverview(this.path("hourly_features.csv"))).last.hour, timeContext)}`,
-      `Latest raw transaction timestamp: ${formatTimestamp((await this.metadata()).latest_iso_utc, timeContext)}`,
-      `Forecast age: ${formatAgeHours(rows[0].forecast_generated_at)}`,
-      `Freshness: ${freshnessStatus(rows[0].forecast_generated_at, rows[rows.length - 1].forecast_hour).label}`,
-      `Model: ${stringValue(rows[0].model_name)}`,
+      `Window: ${formatTimestamp(rows[0].forecast_hour, timeContext)} -> ${formatTimestamp(rows[rows.length - 1].forecast_hour, timeContext)}`,
+      `Generated: ${formatTimestamp(rows[0].forecast_generated_at, timeContext)} (${formatAgeHours(rows[0].forecast_generated_at)} old)`,
+      `Freshness: ${freshness.label}`,
       "",
-      `Each row is the predicted average transaction fee for that hour in ${timeContext.timezone}.`,
+      "Cheapest hour",
+      `${formatTimestamp(stats.cheapest.row.forecast_hour, timeContext)}`,
+      `${compactTon(stats.cheapest.fee)} (${formatNanoton(stats.cheapest.fee)})`,
       "",
+      `Forecast range: ${compactTon(stats.cheapest.fee)} - ${compactTon(stats.highest.fee)}`,
+      `Peak spread: ${compactTon(stats.difference)} (${stats.percent.toFixed(1)}% below highest hour)`,
+      "",
+      "Top cheap windows:",
     ];
 
-    for (const row of rows.slice(0, 24)) {
-      const predictedNanoton = toNumber(row.predicted_avg_total_fee);
-      const predictedTon = toNumber(row.predicted_avg_total_fee_ton) ?? nanotonToTon(predictedNanoton);
-      lines.push(
-        `h${String(toInteger(row.horizon_hours) ?? 0).padStart(2, "0")} ${formatHour(row.forecast_hour, timeContext)} | ${formatNanoton(
-          predictedNanoton,
-        )} | ${formatTon(predictedTon)}`,
-      );
-    }
-
-    const freshness = freshnessStatus(rows[0].forecast_generated_at, rows[rows.length - 1].forecast_hour);
+    topCheapest.forEach((item, index) => {
+      lines.push(`${index + 1}. ${formatTimestamp(item.row.forecast_hour, timeContext)} - ${compactTon(item.fee)}`);
+    });
     for (const warning of freshness.warnings) {
       lines.push(`Warning: ${warning}`);
     }
-    if (freshness.warnings.length > 0) {
-      lines.push("");
-    }
-    lines.push(
-      "",
-      "Interpretation: use this as a directional guide. Actual TON fees can move quickly when network behavior changes.",
-    );
+    lines.push("", "Chart: see the 24-hour forecast image below.", "Directional estimate, not a guarantee.");
     return lines.join("\n");
   }
 
@@ -277,31 +286,27 @@ class Dashboard {
 
   async besttime(timeContext: TimeContext): Promise<string> {
     const rows = await readCsvRows(this.path("predictions.csv"));
-    const numericRows = rows
-      .map((row) => ({ row, fee: toNumber(row.predicted_avg_total_fee) }))
-      .filter((item): item is { row: CsvRow; fee: number } => item.fee !== null);
-
-    if (numericRows.length === 0) {
-      throw new DashboardError("predictions.csv does not contain numeric predicted_avg_total_fee values.");
-    }
-
-    const cheapest = numericRows.reduce((best, item) => (item.fee < best.fee ? item : best));
-    const highest = numericRows.reduce((best, item) => (item.fee > best.fee ? item : best));
-    const difference = highest.fee - cheapest.fee;
-    const percent = highest.fee ? (difference / highest.fee) * 100 : 0;
+    const stats = forecastStats(rows);
 
     return [
-      "Best Predicted Time Window",
+      "Best Time To Send TON",
       "",
       timeContextNote(timeContext),
-      `Cheapest predicted hour: ${formatTimestamp(cheapest.row.forecast_hour, timeContext)}`,
-      `Predicted average fee: ${formatNanoton(cheapest.fee)} (${formatTon(nanotonToTon(cheapest.fee))})`,
-      `Highest predicted hour in window: ${formatTimestamp(highest.row.forecast_hour, timeContext)}`,
-      `Difference vs highest predicted fee: ${formatNanoton(difference)} (${formatTon(nanotonToTon(difference))}, about ${percent.toFixed(
-        1,
-      )}% lower)`,
+      "Best hour",
+      `${formatTimestamp(stats.cheapest.row.forecast_hour, timeContext)}`,
       "",
-      "This is the model's estimated cheapest hour, but the model should be treated as a directional guide, not a guarantee. Actual network behavior can change quickly.",
+      "Predicted fee",
+      `${compactTon(stats.cheapest.fee)}`,
+      `${formatNanoton(stats.cheapest.fee)}`,
+      "",
+      "Savings vs peak hour",
+      `${compactTon(stats.difference)} lower`,
+      `about ${stats.percent.toFixed(1)}% cheaper`,
+      "",
+      `Lowest  [${asciiBar(stats.cheapest.fee, stats.highest.fee)}] ${compactTon(stats.cheapest.fee)}`,
+      `Highest [${asciiBar(stats.highest.fee, stats.highest.fee)}] ${compactTon(stats.highest.fee)}`,
+      "",
+      "This is the model's estimated cheapest hour in the next 24 hours. Actual network behavior can change quickly.",
     ].join("\n");
   }
 
@@ -454,7 +459,7 @@ class Dashboard {
     }
     lines.push(
       "",
-      "Current project charts are SVG files. This Netlify webhook lists them instead of sending files because Telegram does not reliably render SVG as chart previews without a conversion dependency.",
+      "`/forecast` sends the Telegram-ready PNG chart directly. Other generated chart files are listed here for project diagnostics.",
     );
     return lines.join("\n");
   }
@@ -601,6 +606,24 @@ async function sendTelegramMessage(token: string, chatId: number | string, text:
   }
 }
 
+async function sendTelegramPhoto(token: string, chatId: number | string, photoUrl: string, caption?: string): Promise<void> {
+  const payload = new URLSearchParams({
+    chat_id: String(chatId),
+    photo: photoUrl,
+  });
+  if (caption) {
+    payload.set("caption", caption);
+  }
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+    method: "POST",
+    body: payload,
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Telegram sendPhoto failed with HTTP ${response.status}: ${body.slice(0, 300)}`);
+  }
+}
+
 function splitMessage(text: string): string[] {
   const maxLength = 3900;
   if (text.length <= maxLength) {
@@ -726,6 +749,23 @@ function toInteger(value: unknown): number | null {
   return numeric === null ? null : Math.trunc(numeric);
 }
 
+function forecastStats(rows: CsvRow[]): ForecastStats {
+  const sortedRows = sortByNumber(rows, "horizon_hours", false);
+  const numericRows = sortedRows
+    .map((row) => ({ row, fee: toNumber(row.predicted_avg_total_fee) }))
+    .filter((item): item is { row: CsvRow; fee: number } => item.fee !== null);
+
+  if (numericRows.length === 0) {
+    throw new DashboardError("predictions.csv does not contain numeric predicted_avg_total_fee values.");
+  }
+
+  const cheapest = numericRows.reduce((best, item) => (item.fee < best.fee ? item : best));
+  const highest = numericRows.reduce((best, item) => (item.fee > best.fee ? item : best));
+  const difference = highest.fee - cheapest.fee;
+  const percent = highest.fee ? (difference / highest.fee) * 100 : 0;
+  return { rows: sortedRows, cheapest, highest, difference, percent };
+}
+
 function formatCount(value: unknown): string {
   const numeric = toInteger(value);
   return numeric === null ? "n/a" : numeric.toLocaleString("en-US");
@@ -749,6 +789,19 @@ function formatTon(value: unknown): string {
 function nanotonToTon(value: unknown): number | null {
   const numeric = toNumber(value);
   return numeric === null ? null : numeric / 1_000_000_000;
+}
+
+function compactTon(value: unknown): string {
+  const numeric = nanotonToTon(value);
+  return numeric === null ? "n/a" : `${numeric.toFixed(6)} TON`;
+}
+
+function asciiBar(value: number, maxValue: number, width = 12): string {
+  if (maxValue <= 0) {
+    return ".".repeat(width);
+  }
+  const filled = Math.max(1, Math.min(width, Math.round((value / maxValue) * width)));
+  return `${"#".repeat(filled)}${".".repeat(width - filled)}`;
 }
 
 function percentFromR2(value: unknown): string {
@@ -843,6 +896,7 @@ function chartDescription(file: string): string {
     "model_mae_comparison.svg": "Chronological holdout MAE comparison by model.",
     "actual_vs_predicted.svg": "Holdout actual next-hour fees versus model predictions.",
     "forecast_next_24h.svg": "Recent actual fees with the generated 24-hour forecast.",
+    "forecast_next_24h.png": "Telegram-ready next 24-hour forecast chart.",
   };
   return descriptions[file] ?? "Generated project chart.";
 }
