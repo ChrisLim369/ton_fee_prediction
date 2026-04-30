@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate lightweight SVG charts for the TON fee prediction project.
+"""Generate lightweight SVG/PNG charts for the TON fee prediction project.
 
 The script intentionally uses only pandas plus the Python standard library so
 the dashboard can be regenerated in the current project environment without
@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Iterable
 
 import pandas as pd
+from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +29,13 @@ SLATE = "#334155"
 GRID = "#e2e8f0"
 TEXT = "#0f172a"
 MUTED = "#64748b"
+BG = "#f8fafc"
+CARD = "#ffffff"
+
+
+def hex_to_rgb(color: str) -> tuple[int, int, int]:
+    color = color.lstrip("#")
+    return tuple(int(color[index : index + 2], 16) for index in (0, 2, 4))
 
 
 def fmt_number(value: float) -> str:
@@ -267,6 +275,126 @@ def forecast_chart(path: Path, hourly: pd.DataFrame, pred: pd.DataFrame) -> None
     )
 
 
+def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
+    candidates = [
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/Library/Fonts/Arial Bold.ttf" if bold else "/Library/Fonts/Arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+    for candidate in candidates:
+        try:
+            return ImageFont.truetype(candidate, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def draw_text(draw: ImageDraw.ImageDraw, xy: tuple[int, int], text: str, font: ImageFont.ImageFont, fill: str) -> None:
+    draw.text(xy, text, font=font, fill=hex_to_rgb(fill))
+
+
+def format_ton(value: float) -> str:
+    return f"{value / 1_000_000_000:.6f} TON"
+
+
+def format_short_hour(value: object) -> str:
+    timestamp = pd.to_datetime(value, utc=True, errors="coerce")
+    if pd.isna(timestamp):
+        return str(value)
+    return timestamp.strftime("%m-%d %H:%M UTC")
+
+
+def forecast_png_chart(path: Path, pred: pd.DataFrame) -> None:
+    forecast = pred.copy()
+    forecast["horizon_hours"] = pd.to_numeric(forecast["horizon_hours"], errors="coerce")
+    forecast["predicted_avg_total_fee"] = pd.to_numeric(forecast["predicted_avg_total_fee"], errors="coerce")
+    forecast = forecast.dropna(subset=["horizon_hours", "predicted_avg_total_fee"]).sort_values("horizon_hours").head(24)
+    if forecast.empty:
+        return
+
+    width, height = 1200, 720
+    image = Image.new("RGB", (width, height), hex_to_rgb(BG))
+    draw = ImageDraw.Draw(image)
+
+    title_font = load_font(38, bold=True)
+    heading_font = load_font(24, bold=True)
+    body_font = load_font(21)
+    small_font = load_font(17)
+    label_font = load_font(15)
+
+    draw.rounded_rectangle((36, 30, width - 36, height - 30), radius=26, fill=hex_to_rgb(CARD), outline=hex_to_rgb(GRID), width=2)
+    draw_text(draw, (70, 64), "TON Fee Forecast", title_font, TEXT)
+
+    generated = forecast.iloc[0].get("forecast_generated_at", "")
+    generated_label = format_short_hour(generated) if generated else "n/a"
+    draw_text(draw, (72, 110), f"Next 24 hours | Generated {generated_label}", body_font, MUTED)
+
+    values = [float(value) for value in forecast["predicted_avg_total_fee"]]
+    min_value = min(values)
+    max_value = max(values)
+    span = max_value - min_value or 1.0
+    pad = span * 0.16
+    y_min = min_value - pad
+    y_max = max_value + pad
+
+    cheapest_index = values.index(min_value)
+    highest_index = values.index(max_value)
+    cheapest_row = forecast.iloc[cheapest_index]
+    highest_row = forecast.iloc[highest_index]
+    difference = max_value - min_value
+    percent = difference / max_value * 100 if max_value else 0.0
+
+    summary_x = 760
+    draw.rounded_rectangle((summary_x, 64, 1128, 206), radius=18, fill=hex_to_rgb("#ecfdf5"), outline=hex_to_rgb("#bbf7d0"), width=2)
+    draw_text(draw, (summary_x + 24, 88), "Cheapest window", heading_font, GREEN)
+    draw_text(draw, (summary_x + 24, 124), format_short_hour(cheapest_row["forecast_hour"]), body_font, TEXT)
+    draw_text(draw, (summary_x + 24, 158), f"{format_ton(min_value)} | {percent:.1f}% below peak", body_font, TEXT)
+
+    plot_left, plot_top, plot_right, plot_bottom = 90, 250, 1110, 570
+    draw.rounded_rectangle((plot_left - 18, plot_top - 28, plot_right + 18, plot_bottom + 48), radius=18, fill=hex_to_rgb("#ffffff"), outline=hex_to_rgb(GRID), width=1)
+
+    for idx in range(5):
+        y = plot_bottom - idx * (plot_bottom - plot_top) / 4
+        value = y_min + idx * (y_max - y_min) / 4
+        draw.line((plot_left, y, plot_right, y), fill=hex_to_rgb(GRID), width=1)
+        draw_text(draw, (plot_left - 78, int(y) - 10), format_ton(value).replace(" TON", ""), label_font, MUTED)
+
+    draw.line((plot_left, plot_bottom, plot_right, plot_bottom), fill=hex_to_rgb(SLATE), width=2)
+    draw.line((plot_left, plot_top, plot_left, plot_bottom), fill=hex_to_rgb(SLATE), width=2)
+
+    def point(index: int, value: float) -> tuple[float, float]:
+        x = plot_left + index * (plot_right - plot_left) / max(len(values) - 1, 1)
+        y = plot_bottom - (value - y_min) * (plot_bottom - plot_top) / (y_max - y_min)
+        return x, y
+
+    points = [point(index, value) for index, value in enumerate(values)]
+    for left, right in zip(points, points[1:]):
+        draw.line((*left, *right), fill=hex_to_rgb(BLUE), width=5)
+
+    for index, (x, y) in enumerate(points):
+        color = GREEN if index == cheapest_index else RED if index == highest_index else BLUE
+        radius = 9 if index in {cheapest_index, highest_index} else 5
+        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=hex_to_rgb(color), outline=hex_to_rgb(CARD), width=3)
+
+    for index in [0, 5, 11, 17, 23]:
+        if index >= len(points):
+            continue
+        x, _ = points[index]
+        label = f"h{int(forecast.iloc[index]['horizon_hours']):02d}"
+        draw_text(draw, (int(x) - 14, plot_bottom + 18), label, label_font, MUTED)
+
+    cheapest_x, cheapest_y = points[cheapest_index]
+    highest_x, highest_y = points[highest_index]
+    draw_text(draw, (int(cheapest_x) + 14, int(cheapest_y) - 26), "lowest", small_font, GREEN)
+    draw_text(draw, (int(highest_x) + 14, int(highest_y) - 26), "highest", small_font, RED)
+
+    draw_text(draw, (90, 620), f"Range: {format_ton(min_value)} - {format_ton(max_value)}", body_font, TEXT)
+    draw_text(draw, (90, 652), "Directional estimate only. Actual fees can change quickly with network activity.", small_font, MUTED)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    image.save(path, format="PNG", optimize=True)
+
+
 def main() -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
 
@@ -320,6 +448,7 @@ def main() -> None:
     )
 
     forecast_chart(FIGURES / "forecast_next_24h.svg", hourly, predictions)
+    forecast_png_chart(FIGURES / "forecast_next_24h.png", predictions)
     if raw_path.exists():
         raw_fees = pd.read_csv(raw_path, usecols=["total_fees"])["total_fees"]
         histogram_svg(FIGURES / "fee_distribution.svg", raw_fees)

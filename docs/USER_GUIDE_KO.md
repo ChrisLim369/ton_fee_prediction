@@ -259,7 +259,7 @@ docs/model_evaluation_report.md
 
 ### scripts/generate_charts.py
 
-CSV 결과를 SVG 그래프로 생성합니다. 별도 plotting 라이브러리 없이 동작합니다.
+CSV 결과를 SVG 진단 그래프와 Telegram 전송용 `forecast_next_24h.png` 그래프로 생성합니다.
 
 ### src/telegram_bot.py
 
@@ -366,7 +366,7 @@ src/refresh_forecast_outputs.py
 - predictions.csv와 last_updated.json을 새로 갱신합니다.
 
 .github/workflows/hourly_forecast_update.yml
-- 매시간 최근 데이터, hourly_features.csv, predictions.csv, docs/figures/*.svg를 갱신합니다.
+- 매시간 최근 데이터, hourly_features.csv, predictions.csv, docs/figures/*.svg, docs/figures/*.png를 갱신합니다.
 
 .github/workflows/daily_model_retrain.yml
 - 하루 한 번 모델을 재학습하고 model 결과 파일, forecast, chart를 갱신합니다.
@@ -423,6 +423,7 @@ GitHub Actions hourly schedule
 -> hourly_features.csv 병합/갱신
 -> predictions.csv 재생성
 -> chart 재생성
+-> /forecast용 PNG chart 재생성
 -> lightweight output만 GitHub에 commit
 -> Netlify 자동 redeploy 또는 build hook 호출
 -> Telegram /forecast가 최신 배포 파일 읽기

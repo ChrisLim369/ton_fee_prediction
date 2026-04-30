@@ -23,6 +23,7 @@ models/model_comparison.csv
 models/rolling_backtest.csv
 last_updated.json
 docs/figures/*.svg
+docs/figures/forecast_next_24h.png
 ```
 
 `collection_metadata.json` is used as a metadata fallback when `last_updated.json` is not available.
@@ -165,7 +166,7 @@ Runtime code:
 
 Netlify deployment:
 
-- `netlify.toml`: publishes `docs/` as the static directory and includes the dashboard CSV/JSON/SVG artifacts in the function bundle. It intentionally does not include `raw_transactions.csv`.
+- `netlify.toml`: publishes `docs/` as the static directory and includes the dashboard CSV/JSON/chart artifacts in the function bundle. It intentionally does not include `raw_transactions.csv`.
 - `package.json`: Node project metadata and `npm run check:netlify` validation command.
 - `package-lock.json`: locked Node dependency versions for reproducible Netlify function validation.
 - `tsconfig.json`: TypeScript compiler settings for the Netlify function.
@@ -179,7 +180,8 @@ Dashboard inputs:
 - `models/rolling_backtest.csv`: rolling validation summary shown by `/backtest`.
 - `last_updated.json`: latest collection status and raw row metadata shown by `/summary` and `/quality`.
 - `collection_metadata.json`: fallback metadata if `last_updated.json` is unavailable.
-- `docs/figures/*.svg`: chart inventory shown by `/charts`.
+- `docs/figures/*.svg`: diagnostic chart inventory shown by `/charts`.
+- `docs/figures/forecast_next_24h.png`: Telegram-ready forecast chart sent after `/forecast`.
 
 Automation:
 
@@ -190,7 +192,7 @@ Automation:
 
 ## Command Details
 
-`/forecast` shows the next 24 saved forecast rows with the display timezone, predicted average fee in nanoton, predicted fee in TON, model name, forecast generation time, forecast range, latest feature hour, latest raw transaction timestamp, forecast age, and a stale/fresh warning.
+`/forecast` shows a compact forecast card with the cheapest hour, forecast range, top cheap windows, freshness, and a Telegram-ready PNG chart of the next 24 hours.
 
 `/besttime` finds the lowest predicted average fee in `predictions.csv`, compares it with the highest predicted fee in the same forecast window, and explains that the result is directional rather than guaranteed.
 
@@ -222,7 +224,7 @@ These commands remain available for project owner/debugging use, but they are hi
 
 `/quality` summarizes raw row count from metadata, hourly rows, duplicate policy, TON Center API page-limit hits, and why transaction count features should be treated as sampled activity.
 
-`/charts` lists generated chart files in `docs/figures/` and explains what each chart represents. The current charts are SVG files, so the bot lists them as text instead of sending them as Telegram preview images.
+`/charts` lists generated chart files in `docs/figures/` and explains what each chart represents. `/forecast` sends the main PNG chart directly; the remaining charts are primarily diagnostic outputs.
 
 ## Security Notes
 

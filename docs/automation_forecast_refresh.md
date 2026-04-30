@@ -11,10 +11,10 @@ GitHub Actions schedule
 -> save raw_transactions.csv back to GitHub Actions cache
 -> merge refreshed hourly aggregates into committed hourly_features.csv
 -> regenerate predictions.csv
--> regenerate SVG charts
+-> regenerate SVG diagnostics and Telegram forecast PNG chart
 -> commit lightweight outputs back to GitHub
 -> Netlify redeploys from GitHub or via optional build hook
--> Telegram webhook reads the newest deployed CSV/JSON/SVG files
+-> Telegram webhook reads the newest deployed CSV/JSON/chart files
 ```
 
 Telegram handlers stay read-only. They only read deployed files and send text responses. This keeps `/forecast` fast and prevents Telegram requests from triggering long API calls, training jobs, file writes, or secret exposure.
@@ -51,6 +51,7 @@ predictions.csv
 last_updated.json
 collection_metadata.json
 docs/figures/*.svg
+docs/figures/*.png
 ```
 
 Daily workflow:
@@ -85,6 +86,7 @@ last_updated.json
 collection_metadata.json
 docs/model_evaluation_report.md
 docs/figures/*.svg
+docs/figures/*.png
 ```
 
 Both workflows use concurrency so overlapping runs do not write at the same time. If no tracked output changes, the workflow exits cleanly without creating an empty commit.

@@ -50,6 +50,7 @@ CHART_DESCRIPTIONS = {
     "model_mae_comparison.svg": "Chronological holdout MAE comparison by model.",
     "actual_vs_predicted.svg": "Holdout actual next-hour fees versus model predictions.",
     "forecast_next_24h.svg": "Recent actual fees with the generated 24-hour forecast.",
+    "forecast_next_24h.png": "Telegram-ready next 24-hour forecast chart.",
 }
 
 
@@ -118,6 +119,17 @@ class TimeContext:
     timezone: ZoneInfo
     name: str
     source: str
+
+
+@dataclass(frozen=True)
+class ForecastStats:
+    rows: list[dict[str, str]]
+    cheapest: dict[str, str]
+    highest: dict[str, str]
+    cheapest_fee: float
+    highest_fee: float
+    difference: float
+    percent: float
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -356,6 +368,48 @@ def sorted_by_float(rows: list[dict[str, str]], column: str, reverse: bool = Tru
     return sorted(rows, key=key, reverse=reverse)
 
 
+def load_forecast_stats(predictions_path: Path) -> ForecastStats:
+    rows = sorted_by_float(read_csv_rows(predictions_path), "horizon_hours", reverse=False)
+    if not rows:
+        raise DashboardError("predictions.csv has no forecast rows.")
+
+    numeric_rows: list[tuple[dict[str, str], float]] = []
+    for row in rows:
+        predicted_fee = to_float(row.get("predicted_avg_total_fee"))
+        if predicted_fee is not None:
+            numeric_rows.append((row, predicted_fee))
+    if not numeric_rows:
+        raise DashboardError("predictions.csv does not contain numeric predicted_avg_total_fee values.")
+
+    cheapest, cheapest_fee = min(numeric_rows, key=lambda item: item[1])
+    highest, highest_fee = max(numeric_rows, key=lambda item: item[1])
+    difference = highest_fee - cheapest_fee
+    percent = difference / highest_fee * 100 if highest_fee else 0.0
+    return ForecastStats(
+        rows=rows,
+        cheapest=cheapest,
+        highest=highest,
+        cheapest_fee=cheapest_fee,
+        highest_fee=highest_fee,
+        difference=difference,
+        percent=percent,
+    )
+
+
+def compact_ton(value: Any) -> str:
+    numeric = nanoton_to_ton(value)
+    if numeric is None:
+        return "n/a"
+    return f"{numeric:.6f} TON"
+
+
+def ascii_bar(value: float, max_value: float, width: int = 12) -> str:
+    if max_value <= 0:
+        return "." * width
+    filled = max(1, min(width, round(value / max_value * width)))
+    return "#" * filled + "." * (width - filled)
+
+
 class Dashboard:
     def __init__(self, paths: ProjectPaths) -> None:
         self.paths = paths
@@ -405,49 +459,43 @@ class Dashboard:
 
     def forecast(self, time_context: TimeContext | None = None) -> str:
         time_context = time_context or default_time_context()
-        rows = read_csv_rows(self.paths.predictions)
-        if not rows:
-            raise DashboardError("predictions.csv has no forecast rows.")
-        rows = sorted_by_float(rows, "horizon_hours", reverse=False)
-        model_name = rows[0].get("model_name", "n/a")
+        stats = load_forecast_stats(self.paths.predictions)
+        rows = stats.rows
         generated = rows[0].get("forecast_generated_at")
+        freshness, warnings = freshness_status(generated, rows[-1].get("forecast_hour"))
+        top_cheapest = sorted(
+            [
+                (row, to_float(row.get("predicted_avg_total_fee")))
+                for row in rows
+                if to_float(row.get("predicted_avg_total_fee")) is not None
+            ],
+            key=lambda item: item[1] or 0,
+        )[:3]
 
         lines = [
-            "Next 24-Hour Fee Forecast",
+            "TON Fee Forecast",
             "",
             time_context_note(time_context),
-            f"Generated at: {format_timestamp_for_timezone(generated, time_context)}",
-            f"Forecast range: {format_timestamp_for_timezone(rows[0].get('forecast_hour'), time_context)} to {format_timestamp_for_timezone(rows[-1].get('forecast_hour'), time_context)}",
-            f"Latest feature hour: {format_timestamp_for_timezone(self._latest_feature_hour(), time_context)}",
-            f"Latest raw transaction timestamp: {format_timestamp_for_timezone(self._metadata().get('latest_iso_utc'), time_context)}",
-            f"Forecast age: {format_age_hours(generated)}",
-            f"Freshness: {freshness_status(generated, rows[-1].get('forecast_hour'))[0]}",
-            f"Model: {model_name}",
+            f"Window: {format_timestamp_for_timezone(rows[0].get('forecast_hour'), time_context)} -> {format_timestamp_for_timezone(rows[-1].get('forecast_hour'), time_context)}",
+            f"Generated: {format_timestamp_for_timezone(generated, time_context)} ({format_age_hours(generated)} old)",
+            f"Freshness: {freshness}",
             "",
-            f"Each row is the predicted average transaction fee for that hour in {time_context.name}.",
+            "Cheapest hour",
+            f"{format_timestamp_for_timezone(stats.cheapest.get('forecast_hour'), time_context)}",
+            f"{compact_ton(stats.cheapest_fee)} ({format_nanoton(stats.cheapest_fee)})",
             "",
+            f"Forecast range: {compact_ton(stats.cheapest_fee)} - {compact_ton(stats.highest_fee)}",
+            f"Peak spread: {compact_ton(stats.difference)} ({stats.percent:.1f}% below highest hour)",
+            "",
+            "Top cheap windows:",
         ]
-        for row in rows[:24]:
-            predicted_nanoton = to_float(row.get("predicted_avg_total_fee"))
-            predicted_ton = to_float(row.get("predicted_avg_total_fee_ton"))
-            if predicted_ton is None:
-                predicted_ton = nanoton_to_ton(predicted_nanoton)
-            lines.append(
-                f"h{to_int(row.get('horizon_hours'), 0):02d} "
-                f"{format_hour(row.get('forecast_hour'), time_context)} | "
-                f"{format_nanoton(predicted_nanoton)} | {format_ton(predicted_ton)}"
-            )
 
-        lines.extend(
-            [
-                "",
-                *[f"Warning: {warning}" for warning in freshness_status(generated, rows[-1].get("forecast_hour"))[1]],
-                "" if freshness_status(generated, rows[-1].get("forecast_hour"))[1] else None,
-                "Interpretation: use this as a directional guide. Actual TON fees can move quickly when "
-                "network behavior changes.",
-            ]
-        )
-        lines = [line for line in lines if line is not None]
+        for index, (row, fee) in enumerate(top_cheapest, start=1):
+            lines.append(f"{index}. {format_timestamp_for_timezone(row.get('forecast_hour'), time_context)} - {compact_ton(fee)}")
+
+        if warnings:
+            lines.extend(["", *[f"Warning: {warning}" for warning in warnings]])
+        lines.extend(["", "Chart: see the 24-hour forecast image below.", "Directional estimate, not a guarantee."])
         return "\n".join(lines)
 
     def status(self, time_context: TimeContext | None = None) -> str:
@@ -482,35 +530,27 @@ class Dashboard:
 
     def besttime(self, time_context: TimeContext | None = None) -> str:
         time_context = time_context or default_time_context()
-        rows = read_csv_rows(self.paths.predictions)
-        if not rows:
-            raise DashboardError("predictions.csv has no forecast rows.")
-
-        numeric_rows: list[tuple[dict[str, str], float]] = []
-        for row in rows:
-            predicted_fee = to_float(row.get("predicted_avg_total_fee"))
-            if predicted_fee is not None:
-                numeric_rows.append((row, predicted_fee))
-        if not numeric_rows:
-            raise DashboardError("predictions.csv does not contain numeric predicted_avg_total_fee values.")
-
-        cheapest, cheapest_fee = min(numeric_rows, key=lambda item: item[1])
-        highest, highest_fee = max(numeric_rows, key=lambda item: item[1])
-        difference = highest_fee - cheapest_fee
-        percent = difference / highest_fee * 100 if highest_fee else 0.0
+        stats = load_forecast_stats(self.paths.predictions)
 
         lines = [
-            "Best Predicted Time Window",
+            "Best Time To Send TON",
             "",
             time_context_note(time_context),
-            f"Cheapest predicted hour: {format_timestamp_for_timezone(cheapest.get('forecast_hour'), time_context)}",
-            f"Predicted average fee: {format_nanoton(cheapest_fee)} ({format_ton(nanoton_to_ton(cheapest_fee))})",
-            f"Highest predicted hour in window: {format_timestamp_for_timezone(highest.get('forecast_hour'), time_context)}",
-            f"Difference vs highest predicted fee: {format_nanoton(difference)} "
-            f"({format_ton(nanoton_to_ton(difference))}, about {percent:.1f}% lower)",
+            "Best hour",
+            format_timestamp_for_timezone(stats.cheapest.get("forecast_hour"), time_context),
             "",
-            "This is the model's estimated cheapest hour, but the model should be treated as a directional "
-            "guide, not a guarantee. Actual network behavior can change quickly.",
+            "Predicted fee",
+            f"{compact_ton(stats.cheapest_fee)}",
+            f"{format_nanoton(stats.cheapest_fee)}",
+            "",
+            "Savings vs peak hour",
+            f"{compact_ton(stats.difference)} lower",
+            f"about {stats.percent:.1f}% cheaper",
+            "",
+            f"Lowest  [{ascii_bar(stats.cheapest_fee, stats.highest_fee)}] {compact_ton(stats.cheapest_fee)}",
+            f"Highest [{ascii_bar(stats.highest_fee, stats.highest_fee)}] {compact_ton(stats.highest_fee)}",
+            "",
+            "This is the model's estimated cheapest hour in the next 24 hours. Actual network behavior can change quickly.",
         ]
         return "\n".join(lines)
 
@@ -696,8 +736,7 @@ class Dashboard:
             lines.extend(
                 [
                     "",
-                    "PNG/JPEG chart files can be sent by the bot. SVG files are listed as text because Telegram "
-                    "does not reliably render them as preview images.",
+                    "`/forecast` sends the Telegram-ready PNG chart directly. SVG files are listed here for project diagnostics.",
                 ]
             )
         else:
@@ -773,6 +812,33 @@ class TelegramClient:
     def send_message(self, chat_id: int, text: str) -> None:
         for chunk in split_message(text):
             self.request("sendMessage", chat_id=chat_id, text=chunk, disable_web_page_preview=True)
+
+    def send_photo(self, chat_id: int, photo_path: Path, caption: str | None = None) -> None:
+        if not photo_path.exists():
+            logger.warning("Forecast chart image is missing: %s", photo_path)
+            return
+
+        url = f"https://api.telegram.org/bot{self.token}/sendPhoto"
+        payload: dict[str, Any] = {"chat_id": chat_id}
+        if caption:
+            payload["caption"] = caption
+        try:
+            with photo_path.open("rb") as handle:
+                response = self.session.post(
+                    url,
+                    data=payload,
+                    files={"photo": (photo_path.name, handle, "image/png")},
+                    timeout=self.request_timeout,
+                )
+        except requests.RequestException as exc:
+            raise RuntimeError(f"Telegram photo upload failed: {redact_token(str(exc), self.token)}") from exc
+
+        if response.status_code >= 400:
+            raise RuntimeError(f"Telegram API returned HTTP {response.status_code} for sendPhoto: {response.text[:300]}")
+
+        data = response.json()
+        if not data.get("ok"):
+            raise RuntimeError(f"Telegram API returned ok=false for sendPhoto: {str(data)[:300]}")
 
 
 def split_message(text: str) -> list[str]:
@@ -872,6 +938,12 @@ def run_polling(client: TelegramClient, dashboard: Dashboard, poll_timeout: int)
 
             try:
                 client.send_message(chat_id=chat["id"], text=response)
+                if command_name(message.get("text", "")) == "/forecast":
+                    client.send_photo(
+                        chat_id=chat["id"],
+                        photo_path=dashboard.paths.figures_dir / "forecast_next_24h.png",
+                        caption="24-hour forecast chart",
+                    )
             except Exception as exc:
                 logger.error("sendMessage failed: %s", redact_token(str(exc), client.token))
 
