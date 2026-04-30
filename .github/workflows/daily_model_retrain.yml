@@ -84,7 +84,7 @@ jobs:
           git add -- models/model_metrics.json models/model_comparison.csv models/rolling_backtest.csv
           git add -- models/rolling_backtest_folds.csv models/model_coefficients.csv models/feature_importance.csv
           git add -- actual_vs_predicted.csv hourly_features.csv predictions.csv last_updated.json collection_metadata.json
-          git add -- docs/model_evaluation_report.md docs/figures/*.svg
+          git add -- docs/model_evaluation_report.md docs/figures/*.svg docs/figures/*.png
           if git diff --cached --quiet; then
             echo "committed=false" >> "$GITHUB_OUTPUT"
             echo "No lightweight model or forecast output changes to commit."
