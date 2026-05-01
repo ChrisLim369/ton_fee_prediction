@@ -3,11 +3,11 @@
 ## Summary
 
 - Best model: `gradient_boosted_stumps_100_lr_0_05`
-- Baseline Linear Regression R2: -0.193755
-- Best model R2: 0.112600
-- R2 change: 0.306356
-- MAE change: 23402.620 nanoton
-- RMSE change: 37221.497 nanoton
+- Baseline Linear Regression R2: -0.347028
+- Best model R2: 0.087714
+- R2 change: 0.434742
+- MAE change: 34452.980 nanoton
+- RMSE change: 52341.370 nanoton
 
 ## Interpretation
 
@@ -20,18 +20,18 @@ The next priorities are more uniform historical backfill, uncertainty ranges, an
 
 ```text
           mae          rmse        r2     mape                               model_name                               model_type target_transform  alpha  train_rows  test_rows  max_depth  n_estimators  learning_rate  min_samples_leaf
-177796.977198 232867.463991  0.112600 7.752266      gradient_boosted_stumps_100_lr_0_05        gradient_boosted_regression_trees             none    0.0         615        154        1.0         100.0           0.05              20.0
-177353.100488 233186.330564  0.110168 7.731095      gradient_boosted_stumps_200_lr_0_03        gradient_boosted_regression_trees             none    0.0         615        154        1.0         200.0           0.03              20.0
-182823.152570 234861.532966  0.097337 7.973385       gradient_boosted_stumps_50_lr_0_05        gradient_boosted_regression_trees             none    0.0         615        154        1.0          50.0           0.05              20.0
-185437.478525 245490.210166  0.013789 8.013467 gradient_boosted_trees_depth_3_50_lr_0_1        gradient_boosted_regression_trees             none    0.0         615        154        3.0          50.0           0.10              20.0
-184824.261374 249449.147915 -0.018277 7.729094             ridge_alpha_100_log1p_target                         ridge_regression            log1p  100.0         615        154        NaN           NaN            NaN               NaN
-186203.054034 252074.079038 -0.039820 7.796816                          ridge_alpha_100                         ridge_regression             none  100.0         615        154        NaN           NaN            NaN               NaN
-191670.350269 257130.100108 -0.081951 8.001980              ridge_alpha_10_log1p_target                         ridge_regression            log1p   10.0         615        154        NaN           NaN            NaN               NaN
-193983.538021 257628.263097 -0.086147 8.125497               ridge_alpha_1_log1p_target                         ridge_regression            log1p    1.0         615        154        NaN           NaN            NaN               NaN
-193960.674581 260712.118107 -0.112306 8.116680                           ridge_alpha_10                         ridge_regression             none   10.0         615        154        NaN           NaN            NaN               NaN
-196676.648600 261637.833910 -0.120219 8.262227                            ridge_alpha_1                         ridge_regression             none    1.0         615        154        NaN           NaN            NaN               NaN
-196384.694311 262738.426183 -0.129663 8.190621           linear_regression_log1p_target ordinary_least_squares_linear_regression            log1p    0.0         615        154        NaN           NaN            NaN               NaN
-201199.596713 270088.961356 -0.193755 8.401089                        linear_regression ordinary_least_squares_linear_regression             none    0.0         615        154        NaN           NaN            NaN               NaN
+185004.786259 243300.828367  0.087714 8.021877      gradient_boosted_stumps_100_lr_0_05        gradient_boosted_regression_trees             none    0.0         633        159        1.0         100.0           0.05              20.0
+184765.432073 243626.669826  0.085269 8.008443      gradient_boosted_stumps_200_lr_0_03        gradient_boosted_regression_trees             none    0.0         633        159        1.0         200.0           0.03              20.0
+188215.142441 243863.734525  0.083488 8.168163       gradient_boosted_stumps_50_lr_0_05        gradient_boosted_regression_trees             none    0.0         633        159        1.0          50.0           0.05              20.0
+199000.997849 259672.489191 -0.039192 8.596151 gradient_boosted_trees_depth_3_50_lr_0_1        gradient_boosted_regression_trees             none    0.0         633        159        3.0          50.0           0.10              20.0
+196599.032195 268009.086102 -0.106988 8.143102             ridge_alpha_100_log1p_target                         ridge_regression            log1p  100.0         633        159        NaN           NaN            NaN               NaN
+198426.938154 270594.266868 -0.128447 8.228622                          ridge_alpha_100                         ridge_regression             none  100.0         633        159        NaN           NaN            NaN               NaN
+205902.276776 278589.429028 -0.196116 8.508290              ridge_alpha_10_log1p_target                         ridge_regression            log1p   10.0         633        159        NaN           NaN            NaN               NaN
+208823.438058 279723.655887 -0.205875 8.660404               ridge_alpha_1_log1p_target                         ridge_regression            log1p    1.0         633        159        NaN           NaN            NaN               NaN
+208325.369855 282056.045978 -0.226068 8.627327                           ridge_alpha_10                         ridge_regression             none   10.0         633        159        NaN           NaN            NaN               NaN
+211761.179749 283543.741888 -0.239036 8.808363                            ridge_alpha_1                         ridge_regression             none    1.0         633        159        NaN           NaN            NaN               NaN
+213628.662022 287571.658625 -0.274489 8.822299           linear_regression_log1p_target ordinary_least_squares_linear_regression            log1p    0.0         633        159        NaN           NaN            NaN               NaN
+219457.765923 295642.198824 -0.347028 9.074961                        linear_regression ordinary_least_squares_linear_regression             none    0.0         633        159        NaN           NaN            NaN               NaN
 ```
 
 ## Rolling Backtest
@@ -40,16 +40,16 @@ Expanding-window backtest using recent 24-hour test folds. Higher mean R2 is bet
 
 ```text
                               model_name                               model_type target_transform   mean_r2  median_r2   std_r2    min_r2   max_r2      mean_mae    median_mae      std_mae     mean_rmse   median_rmse     std_rmse  mean_mape  median_mape  folds  r2_win_count
-     gradient_boosted_stumps_100_lr_0_05        gradient_boosted_regression_trees             none  0.009874   0.012890 0.083408 -0.113374 0.124974 167231.430514 148218.098874 48428.935761 213994.557873 189190.440112 58960.775651   7.283903     6.501288      8             3
-     gradient_boosted_stumps_200_lr_0_03        gradient_boosted_regression_trees             none  0.008212   0.006250 0.090979 -0.122981 0.137371 166685.689812 146937.773784 48700.899370 214157.960827 189122.894891 59233.532496   7.257303     6.435537      8             1
-      gradient_boosted_stumps_50_lr_0_05        gradient_boosted_regression_trees             none -0.013708  -0.015181 0.064853 -0.100224 0.073499 172210.025086 155035.077172 47400.230594 216230.849783 192689.389233 57562.999659   7.505500     6.840223      8             1
-gradient_boosted_trees_depth_3_50_lr_0_1        gradient_boosted_regression_trees             none -0.041990  -0.090323 0.139464 -0.228523 0.142355 170174.462429 139518.070899 50970.821529 219689.430917 185207.955335 64127.144131   7.356068     5.930074      8             1
-            ridge_alpha_100_log1p_target                         ridge_regression            log1p -0.084545  -0.142154 0.169833 -0.247471 0.177617 174444.140917 146386.418580 52329.353486 224068.394172 189718.737228 66998.012575   7.433594     6.334522      8             2
-                         ridge_alpha_100                         ridge_regression             none -0.090560  -0.136194 0.165867 -0.266718 0.176137 175089.404514 148217.285136 52978.099786 225112.282051 190193.519299 68641.980046   7.498215     6.447498      8             0
-             ridge_alpha_10_log1p_target                         ridge_regression            log1p -0.136220  -0.189417 0.190045 -0.345260 0.155611 179240.172299 148057.195082 58139.167182 230115.247613 193400.930991 72668.451871   7.626278     6.401342      8             0
-                          ridge_alpha_10                         ridge_regression             none -0.148613  -0.177919 0.190932 -0.380466 0.149691 181096.500768 151184.300567 59177.282332 231807.360301 194430.650942 74632.252349   7.748168     6.591215      8             0
-              ridge_alpha_1_log1p_target                         ridge_regression            log1p -0.174330  -0.197707 0.214301 -0.482214 0.142598 182836.324509 149952.273448 62423.888142 234346.565945 196497.648747 76410.036071   7.782066     6.445919      8             0
-                           ridge_alpha_1                         ridge_regression             none -0.189326  -0.199254 0.214736 -0.478611 0.140047 185532.244224 152959.505669 63750.171666 236262.124182 197409.578201 78238.711227   7.943803     6.673417      8             0
-          linear_regression_log1p_target ordinary_least_squares_linear_regression            log1p -0.193212  -0.197410 0.233006 -0.536585 0.147751 183472.365774 149783.566346 63826.774926 236520.001919 197797.850858 79276.462611   7.791553     6.433904      8             0
-                       linear_regression ordinary_least_squares_linear_regression             none -0.211879  -0.217795 0.241465 -0.528136 0.147611 186466.837280 154325.925009 66139.903875 238871.477193 199049.458041 82017.009639   7.960283     6.723983      8             0
+     gradient_boosted_stumps_100_lr_0_05        gradient_boosted_regression_trees             none -0.031871  -0.021058 0.099577 -0.208988 0.119763 177259.288171 181091.842558 47338.481486 227270.294529 224841.869318 56348.789311   7.677231     7.920762      8             3
+     gradient_boosted_stumps_200_lr_0_03        gradient_boosted_regression_trees             none -0.037998  -0.023749 0.108249 -0.232310 0.129057 177263.463327 179713.872053 47669.078313 227890.305342 224707.561313 56629.768087   7.673886     7.902719      8             1
+      gradient_boosted_stumps_50_lr_0_05        gradient_boosted_regression_trees             none -0.040106  -0.033241 0.068886 -0.141439 0.073499 180448.888101 183272.799593 45656.350255 227959.942187 225991.585740 54530.902201   7.821264     8.061755      8             2
+gradient_boosted_trees_depth_3_50_lr_0_1        gradient_boosted_regression_trees             none -0.108545  -0.104867 0.163839 -0.390087 0.112294 181773.156287 175955.300885 50225.235925 235545.482664 223561.958205 61777.530877   7.795681     7.605841      8             1
+            ridge_alpha_100_log1p_target                         ridge_regression            log1p -0.154933  -0.194816 0.174308 -0.410863 0.177617 184348.759646 178399.424782 49507.088720 240300.473901 229252.701011 63551.409930   7.797826     7.563884      8             1
+                         ridge_alpha_100                         ridge_regression             none -0.157581  -0.176046 0.165664 -0.391714 0.176137 185189.670177 182013.140077 50448.475964 241012.845996 233732.641188 64936.200396   7.872116     7.764750      8             0
+             ridge_alpha_10_log1p_target                         ridge_regression            log1p -0.209654  -0.220423 0.188911 -0.464113 0.155611 190235.730819 183444.381162 55103.850307 246685.761512 235922.868932 68822.010617   8.036852     7.791019      8             0
+                          ridge_alpha_10                         ridge_regression             none -0.217771  -0.207049 0.184269 -0.444011 0.149691 191764.268644 187347.745002 56259.167731 247969.950311 242039.953482 70502.190696   8.144781     8.005827      8             0
+              ridge_alpha_1_log1p_target                         ridge_regression            log1p -0.246289  -0.248455 0.206864 -0.482214 0.142598 193797.183300 184750.887506 59187.519110 250803.374342 240488.431838 72206.965241   8.190241     7.858643      8             0
+                           ridge_alpha_1                         ridge_regression             none -0.255920  -0.255219 0.205188 -0.478611 0.140047 196287.639737 190169.142214 60543.293558 252224.442120 247837.936366 73941.604026   8.343528     8.144818      8             0
+          linear_regression_log1p_target ordinary_least_squares_linear_regression            log1p -0.269428  -0.254563 0.228387 -0.536585 0.147751 194520.209789 186068.801558 60628.062254 253406.395071 242175.866010 75198.083789   8.206410     7.917839      8             0
+                       linear_regression ordinary_least_squares_linear_regression             none -0.285371  -0.264685 0.235295 -0.528136 0.147611 197497.933899 193123.062148 62931.722806 255520.778499 249900.161833 77852.066982   8.375905     8.277470      8             0
 ```
