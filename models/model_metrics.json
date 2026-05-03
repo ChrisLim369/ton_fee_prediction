@@ -1,15 +1,15 @@
 {
   "model": "/home/runner/work/ton_fee_prediction/ton_fee_prediction/models/best_model.json",
   "best_model_name": "ridge_alpha_100",
-  "best_r2": 0.659591234413819,
-  "best_mae": 286021.7296463123,
-  "best_rmse": 402443.3043798798,
-  "baseline_r2": -6325.64533643933,
-  "baseline_mae": 20592568.709931016,
-  "baseline_rmse": 54864456.76900771,
-  "train_rows": 652,
-  "test_rows": 164,
-  "r2_improvement": 6326.304927673744,
-  "mae_improvement": 20306546.980284702,
-  "rmse_improvement": 54462013.46462783
+  "best_r2": 0.7028354262530734,
+  "best_mae": 358463.26864191843,
+  "best_rmse": 464837.3693932877,
+  "baseline_r2": -7930.919981999377,
+  "baseline_mae": 39956822.2779303,
+  "baseline_rmse": 75943687.34300232,
+  "train_rows": 672,
+  "test_rows": 168,
+  "r2_improvement": 7931.62281742563,
+  "mae_improvement": 39598359.00928838,
+  "rmse_improvement": 75478849.97360903
 }
