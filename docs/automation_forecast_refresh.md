@@ -5,7 +5,7 @@ This document explains how the Telegram `/forecast` command gets refreshed witho
 ## Architecture
 
 ```text
-GitHub Actions schedule
+GitHub Actions manual workflow
 -> restore ignored raw_transactions.csv from GitHub Actions cache
 -> update raw_transactions.csv incrementally
 -> save raw_transactions.csv back to GitHub Actions cache
@@ -21,13 +21,15 @@ Telegram handlers stay read-only. They only read deployed files and send text re
 
 ## Workflows
 
+The workflows are intentionally `workflow_dispatch` only. Netlify Free is credit-limited, and frequent production deploys can pause every project on the same Netlify team. Run these workflows manually unless the Netlify plan and deploy frequency are adjusted.
+
 Hourly workflow:
 
 ```text
 .github/workflows/hourly_forecast_update.yml
 ```
 
-Runs hourly and manually through `workflow_dispatch`. It executes:
+Runs manually through `workflow_dispatch`. It executes:
 
 ```bash
 python src/refresh_forecast_outputs.py \
@@ -60,7 +62,7 @@ Daily workflow:
 .github/workflows/daily_model_retrain.yml
 ```
 
-Runs daily and manually through `workflow_dispatch`. It refreshes the recent hourly data first, then runs:
+Runs manually through `workflow_dispatch`. It refreshes the recent hourly data first, then runs:
 
 ```bash
 python src/train_model.py
@@ -144,7 +146,9 @@ GitHub Actions cache is useful for this low-cost setup, but it is not a durable 
 
 The Netlify bot bundles CSV/JSON/SVG files at deploy time. Updated GitHub files must therefore trigger a new Netlify deploy.
 
-Use one of these:
+For the current Netlify Free setup, avoid scheduled redeploys. Each production deploy consumes Netlify usage credits, and when the credit limit is exceeded Netlify pauses all projects on the team. Prefer manual refreshes, or move forecast data to external storage before restoring frequent schedules.
+
+Use one of these when you intentionally want a redeploy:
 
 1. Connect the Netlify site `ton-fee-forecast` to the GitHub repository and deploy from `main`.
 2. Or create a Netlify build hook and save it as the GitHub Actions secret:
@@ -153,7 +157,7 @@ Use one of these:
 NETLIFY_BUILD_HOOK_URL
 ```
 
-The workflows call the build hook only after they commit updated outputs. The hook URL is passed through an environment variable and is not printed.
+The workflows do not call the build hook by default. The hook URL should be used only if Git-connected deploys are unavailable and the expected deploy frequency fits the active Netlify plan.
 
 ## Required Secrets
 
@@ -161,7 +165,7 @@ GitHub Actions:
 
 ```text
 TONCENTER_API_KEY
-NETLIFY_BUILD_HOOK_URL   optional if Netlify is connected to GitHub
+NETLIFY_BUILD_HOOK_URL   optional; use carefully because it can trigger production deploys
 ```
 
 Netlify:
