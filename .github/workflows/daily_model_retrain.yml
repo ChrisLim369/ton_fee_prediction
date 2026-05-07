@@ -1,8 +1,6 @@
-name: Daily TON Model Retrain
+name: Manual TON Model Retrain
 
 on:
-  schedule:
-    - cron: "17 0 * * *"
   workflow_dispatch:
 
 permissions:
@@ -89,18 +87,7 @@ jobs:
             echo "committed=false" >> "$GITHUB_OUTPUT"
             echo "No lightweight model or forecast output changes to commit."
           else
-            git commit -m "Update TON daily model outputs"
+            git commit -m "Update TON manual model outputs"
             git push
             echo "committed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Trigger Netlify build hook
-        if: steps.commit.outputs.committed == 'true'
-        env:
-          NETLIFY_BUILD_HOOK_URL: ${{ secrets.NETLIFY_BUILD_HOOK_URL }}
-        run: |
-          if [ -n "${NETLIFY_BUILD_HOOK_URL:-}" ]; then
-            curl -fsS -X POST "$NETLIFY_BUILD_HOOK_URL" >/dev/null
-          else
-            echo "NETLIFY_BUILD_HOOK_URL is not configured; relying on Git-connected Netlify deploys."
           fi
