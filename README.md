@@ -1,121 +1,161 @@
-# TON Transaction Fee Prediction Using On-Chain Metrics
+<div align="center">
 
-This project collects raw TON transaction data from TON Center API v3 and builds an hourly feature table for next-hour average transaction fee prediction. It compares linear, ridge, and lightweight nonlinear gradient-boosted tree models, then uses the selected best model for a 24-hour forecast.
+# TON Transaction Fee Prediction
 
-Korean project guide: `docs/USER_GUIDE_KO.md`
+**An end-to-end ML pipeline that forecasts the next 24 hours of average TON blockchain transaction fees, served through a Telegram chatbot dashboard.**
 
-## Data Source
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Deployed on Netlify](https://img.shields.io/badge/deployed-Netlify-00C7B7)](https://ton-fee-forecast.netlify.app)
+[![Telegram Bot](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram)](https://t.me/ton_fee_forecast_bot)
 
-- Mainnet endpoint: `https://toncenter.com/api/v3/transactions`
-- Documentation: TON Center API v3 `GET /transactions`
-- Optional API key: set `TONCENTER_API_KEY` to send the key through the `X-API-Key` header.
+<!-- TODO: docs/figures/forecast_next_24h.png 같은 대표 차트를 여기에 표시 -->
+<!-- ![Forecast preview](docs/figures/forecast_next_24h.png) -->
 
-Without an API key, TON Center limits requests to 1 request per second, so large historical exports should be collected over multiple runs or with an API key.
+Korean guide: [`docs/USER_GUIDE_KO.md`](docs/USER_GUIDE_KO.md)
 
-## Reproduce
+</div>
+
+---
+
+## Overview
+
+The project pulls raw transaction data from the **TON Center API v3**, aggregates it into an hourly feature table, trains a suite of forecasting models, and selects the best performer for a rolling 24-hour fee forecast. The forecast is exposed to users through a read-only Telegram bot.
+
+- **Data**: TON mainnet transactions via TON Center API v3
+- **Models compared**: linear regression (raw / `log1p`), ridge regression (raw / `log1p`, multiple alphas), gradient-boosted trees
+- **Selection**: chronological holdout + expanding-window rolling backtest
+- **Serving**: Telegram bot in webhook mode on Netlify Functions (free tier)
+
+## Features
+
+- Incremental data collection with resume/cache for long historical ranges
+- Hourly feature engineering: lags, rolling statistics, network activity metrics
+- Multi-model comparison with reproducible chronological evaluation
+- Persisted best model artifact (`models/best_model.json`) consumed by the forecaster
+- 24-hour forecast with diagnostic SVG/PNG visualizations
+- Telegram bot with `/forecast`, `/besttime`, `/timezone` commands and per-request timezone override
+- Two deployment modes: local Python polling **or** Netlify webhook function
+- GitHub Actions workflows for hourly refresh and daily retraining (manual triggers)
+
+## Tech Stack
+
+| Layer | Tools |
+|-------|-------|
+| Data | TON Center API v3, pandas, NumPy |
+| Modeling | scikit-learn-style ridge / linear / GBDT (vanilla Python, no sklearn dep) |
+| Bot | Telegraf-style Python webhook; long polling for local dev |
+| Hosting | Netlify Functions (TypeScript wrapper), GitHub Actions |
+| Charts | matplotlib-style SVG/PNG diagnostics |
+
+## Quick Start
 
 ```bash
+# 1. Clone & install
+git clone https://github.com/ChrisLim369/ton_fee_prediction.git
+cd ton_fee_prediction
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# 2. Collect raw transactions (rate-limited without API key)
 python3 scripts/collect_transactions.py \
-  --days 30 \
-  --window-hours 1 \
-  --limit 100 \
-  --max-pages-per-window 1 \
-  --workchain 0 \
-  --sort asc \
-  --output raw_transactions.csv \
-  --verbose
+  --days 30 --window-hours 1 --limit 100 \
+  --max-pages-per-window 1 --workchain 0 \
+  --sort asc --output raw_transactions.csv --verbose
 
-python3 scripts/build_hourly_features.py \
-  --raw raw_transactions.csv \
-  --output hourly_features.csv
+# 3. Build hourly features, train models, forecast
+python3 scripts/build_hourly_features.py --raw raw_transactions.csv --output hourly_features.csv
+python3 src/train_model.py
+python3 src/generate_forecast.py
 ```
 
-The default `--workchain 0` focuses on basechain user transactions. Use `--workchain all` to include masterchain/system transactions too.
+> Set `TONCENTER_API_KEY` to lift the 1-request-per-second public rate limit.
 
-For deeper collection, increase `--limit` up to 1000 and `--max-pages-per-window`. If any window hits the configured limit, the run should be treated as an hourly sample rather than a complete transaction export.
+## Project Structure
 
-## Continuous Updates
+```
+ton_fee_prediction/
+├── scripts/                 # One-shot data + chart scripts
+│   ├── collect_transactions.py
+│   ├── build_hourly_features.py
+│   └── generate_charts.py
+├── src/                     # Pipeline modules
+│   ├── update_data.py             # Incremental fetch
+│   ├── build_features.py          # Feature engineering
+│   ├── train_model.py             # Model comparison + selection
+│   ├── generate_forecast.py       # 24h forecast from best model
+│   ├── refresh_forecast_outputs.py # CI-safe full refresh
+│   ├── telegram_bot.py            # Local polling bot
+│   └── ton_pipeline.py            # Shared utilities
+├── netlify/functions/
+│   └── telegram-webhook.mts # Netlify webhook bot
+├── .github/workflows/
+│   ├── hourly_forecast_update.yml
+│   └── daily_model_retrain.yml
+├── models/                  # Trained artifacts + metrics
+├── docs/                    # Guides, data dictionary, figures
+├── hourly_features.csv      # Committed lightweight history
+├── predictions.csv          # Next-24h forecast
+└── netlify.toml             # Netlify build/function config
+```
 
-Manual update:
+## Architecture
+
+```
+TON Center API v3
+       │
+       ▼
+collect_transactions.py ──► raw_transactions.csv  (gitignored, ~GB scale)
+       │
+       ▼
+build_hourly_features.py ──► hourly_features.csv  (committed, ~MB)
+       │
+       ▼
+train_model.py ──► models/best_model.json + comparison/backtest CSVs
+       │
+       ▼
+generate_forecast.py ──► predictions.csv + docs/figures/*.png
+       │
+       ▼
+Telegram bot (webhook on Netlify or local polling)
+```
+
+## Configuration
+
+| Variable | Purpose | Where to set |
+|----------|---------|--------------|
+| `TONCENTER_API_KEY` | Raises TON Center rate limit | Shell / GitHub Actions secrets |
+| `TELEGRAM_BOT_TOKEN` | Bot auth | Local shell or Netlify env |
+| `TELEGRAM_WEBHOOK_SECRET` | Optional webhook signature check | Netlify env |
+
+## Telegram Bot
+
+Read-only dashboard exposing the latest forecast. Users see exactly what the saved CSVs contain — no retraining happens inside a Telegram request.
+
+```text
+/forecast              # Next-24h predicted fees + chart image
+/besttime              # Cheapest forecast hour
+/timezone              # Show / set display timezone
+/forecast Asia/Seoul   # Per-call timezone override
+```
+
+### Run locally (polling)
 
 ```bash
-python src/update_data.py
-python src/build_features.py
-python src/generate_forecast.py
-```
-
-Daily model-suite retraining:
-
-```bash
-python src/train_model.py
-```
-
-`train_model.py` compares multiple chronological holdout models and runs an expanding-window rolling backtest:
-
-- plain linear regression baseline
-- linear regression with `log1p` target
-- ridge regression with several alpha values
-- ridge regression with `log1p` target
-- lightweight gradient-boosted regression trees
-
-The best model is written to `models/best_model.json`, and forecasts use that file by default.
-
-Generate SVG/PNG charts:
-
-```bash
-python scripts/generate_charts.py
-```
-
-Local cron example:
-
-```cron
-0 * * * * python /path/to/project/src/update_data.py
-```
-
-See `docs/automation.md` for the full update and retraining commands.
-
-Hosted refresh:
-
-- `.github/workflows/hourly_forecast_update.yml` refreshes recent data, `hourly_features.csv`, `predictions.csv`, and charts when manually triggered.
-- `.github/workflows/daily_model_retrain.yml` refreshes recent data, retrains the model suite, regenerates forecasts, and updates model artifacts when manually triggered.
-- `src/refresh_forecast_outputs.py` is the CI-safe refresh entry point. In GitHub Actions-only mode, it restores ignored `raw_transactions.csv` from Actions cache, updates it incrementally, merges hourly aggregates into the committed lightweight feature history, and never commits `raw_transactions.csv`.
-- Netlify Free usage is credit-limited. Scheduled hourly production deploys can pause every site on the same Netlify team, so these workflows are intentionally manual by default.
-
-See `docs/automation_forecast_refresh.md` for the deployed Telegram forecast refresh architecture.
-
-## Telegram Bot Dashboard
-
-The project includes a read-only Telegram chatbot dashboard that explains the project, shows the latest saved forecast, summarizes model performance, and documents data quality limitations.
-
-Local polling mode:
-
-```bash
-cd /Users/changhyuklim/ton_fee_prediction
 export TELEGRAM_BOT_TOKEN="your_token_here"
 python3 src/telegram_bot.py
 ```
 
-Netlify hosted webhook mode:
+### Deploy as a webhook (Netlify)
 
-```text
-https://ton-fee-forecast.netlify.app/telegram-webhook
+```bash
+npm install
+netlify deploy --prod
+# Then register the webhook with Telegram setWebhook API
 ```
 
-Set `TELEGRAM_BOT_TOKEN` in Netlify environment variables, deploy this repository, then register the Telegram webhook with BotFather's token through the Telegram `setWebhook` API. Optional `TELEGRAM_WEBHOOK_SECRET` is supported for webhook request validation.
-
-The bot reads existing output files such as `predictions.csv`, `hourly_features.csv`, `models/model_metrics.json`, `models/model_comparison.csv`, and `models/rolling_backtest.csv`. It does not retrain models or modify data inside Telegram request handlers.
-
-User-facing commands are intentionally minimal:
-
-```text
-/forecast
-/besttime
-/timezone
-```
-
-Forecast and best-time timestamps are displayed in the detected Telegram language timezone when possible. Users can override the display timezone per command, for example `/forecast Asia/Seoul` or `/besttime America/New_York`.
-
-Validate locally without starting Telegram polling:
+Validate without starting polling:
 
 ```bash
 python3 -m py_compile src/telegram_bot.py
@@ -123,39 +163,59 @@ python3 src/telegram_bot.py --validate
 npm run check:netlify
 ```
 
-See `docs/telegram_bot.md` for commands and operational notes.
+See [`docs/telegram_bot.md`](docs/telegram_bot.md) for the full operational guide.
 
-Telegram and Netlify files:
+## Automation
 
-- `src/telegram_bot.py`: local polling version for development or Mac/VPS operation.
-- `netlify/functions/telegram-webhook.mts`: hosted Telegram webhook function for Netlify.
-- `src/refresh_forecast_outputs.py`: GitHub Actions-safe refresh script for hourly forecast outputs without committing the full raw CSV.
-- `.github/workflows/hourly_forecast_update.yml`: manual lightweight forecast refresh workflow.
-- `.github/workflows/daily_model_retrain.yml`: manual retraining and model artifact refresh workflow.
-- `netlify.toml`: Netlify build/function settings and included dashboard artifact files.
-- `package.json`, `package-lock.json`, `tsconfig.json`: TypeScript validation and Netlify Function dependency metadata.
-- `docs/telegram_bot.md`: full dashboard, deployment, webhook, and troubleshooting guide.
-- `docs/automation_forecast_refresh.md`: automated forecast refresh and Netlify redeploy guide.
+### Local cron
+
+```cron
+0 * * * * python /path/to/project/src/update_data.py
+```
+
+### GitHub Actions (manual triggers by default)
+
+- [`.github/workflows/hourly_forecast_update.yml`](.github/workflows/hourly_forecast_update.yml) — refresh recent data, features, predictions, charts
+- [`.github/workflows/daily_model_retrain.yml`](.github/workflows/daily_model_retrain.yml) — refresh data, retrain model suite, regenerate forecasts
+
+Both rely on `src/refresh_forecast_outputs.py`, which restores the gitignored `raw_transactions.csv` from Actions cache, updates incrementally, merges aggregates into the committed `hourly_features.csv`, and **never commits the raw CSV**.
+
+> Workflows are intentionally manual: Netlify Free credit limits can pause every site on the same team if scheduled hourly redeploys run unattended.
+
+See [`docs/automation.md`](docs/automation.md) and [`docs/automation_forecast_refresh.md`](docs/automation_forecast_refresh.md).
+
+## Documentation
+
+- [`docs/USER_GUIDE_KO.md`](docs/USER_GUIDE_KO.md) — Korean walkthrough
+- [`docs/data_dictionary.md`](docs/data_dictionary.md) — column definitions for both CSVs
+- [`docs/summary_report.md`](docs/summary_report.md) — coverage, missing values, limitations
+- [`docs/model_evaluation_report.md`](docs/model_evaluation_report.md) — model performance summary
+- [`docs/visualizations.md`](docs/visualizations.md) — generated SVG charts
+- [`docs/telegram_bot.md`](docs/telegram_bot.md) — bot operational guide
+- [`docs/automation_forecast_refresh.md`](docs/automation_forecast_refresh.md) — refresh + redeploy architecture
 
 ## Outputs
 
-- `raw_transactions.csv`: transaction-level rows.
-- `hourly_features.csv`: hourly features, lags, rolling metrics, and next-hour prediction target.
-- `predictions.csv`: next 24-hour predicted average transaction fees.
-- `collection_metadata.json`: API request and sampling metadata.
-- `last_updated.json`: incremental update state, latest timestamp, latest logical time, and status.
-- `docs/data_dictionary.md`: column definitions for both CSVs.
-- `docs/summary_report.md`: coverage, missing values, fee statistics, and limitations.
-- `models/linear_regression_model.json`: legacy compatibility path; currently stores the selected best model.
-- `models/best_model.json`: selected best model from the model comparison run.
-- `models/model_metrics.json`: chronological holdout metrics.
-- `models/model_comparison.csv`: model comparison table with MAE, RMSE, R2, and MAPE.
-- `models/rolling_backtest.csv`: expanding-window rolling backtest summary by model.
-- `models/rolling_backtest_folds.csv`: fold-level rolling backtest details and winners.
-- `models/model_coefficients.csv`: coefficient-based feature importance table.
-- `models/feature_importance.csv`: coefficients for all compared coefficient-based models.
-- `actual_vs_predicted.csv`: test-period actual vs predicted values for the selected best model.
-- `docs/model_evaluation_report.md`: short model evaluation summary.
-- `docs/visualizations.md`: Markdown page linking generated SVG charts.
-- `docs/telegram_bot.md`: Telegram chatbot dashboard guide.
-- `docs/figures/`: generated SVG diagnostics and `forecast_next_24h.png`, which Telegram sends for `/forecast`.
+| File | Description |
+|------|-------------|
+| `raw_transactions.csv` | Transaction-level rows (gitignored, large) |
+| `hourly_features.csv` | Hourly features + lags + rolling metrics + next-hour target |
+| `predictions.csv` | Next 24h predicted average fees |
+| `collection_metadata.json` | API request + sampling metadata |
+| `last_updated.json` | Incremental update state, latest timestamp/logical time |
+| `actual_vs_predicted.csv` | Test-period actuals vs predicted for the selected model |
+| `models/best_model.json` | Selected best model |
+| `models/model_metrics.json` | Chronological holdout metrics |
+| `models/model_comparison.csv` | MAE / RMSE / R² / MAPE table |
+| `models/rolling_backtest.csv` | Expanding-window backtest by model |
+| `models/rolling_backtest_folds.csv` | Per-fold details + winners |
+| `models/feature_importance.csv` | Coefficient-based feature importance |
+| `docs/figures/forecast_next_24h.png` | Forecast image sent by the bot |
+
+## Contributing
+
+Issues and pull requests are welcome. For larger changes, please open an issue first to discuss intent.
+
+## License
+
+[MIT](LICENSE) © 2026 Changhyuk Lim
