@@ -66,6 +66,13 @@ def save_last_updated(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def default_end_datetime(include_partial_hour: bool) -> datetime:
+    now = datetime.now(UTC).replace(microsecond=0)
+    if include_partial_hour:
+        return now
+    return now.replace(minute=0, second=0)
+
+
 def update_state_from_row(state: dict[str, Any], row: dict[str, Any]) -> None:
     now_value = as_int(row.get("now"), None)
     lt_value = as_int(row.get("lt"), None)
@@ -111,7 +118,8 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
                         old_rows += 1
                         update_state_from_row(before_state, row)
 
-            end_dt = parse_utc(args.end_date) or datetime.now(UTC).replace(microsecond=0)
+            end_dt = parse_utc(args.end_date) or default_end_datetime(args.include_partial_hour)
+            use_start_lt = bool(before_state["latest_lt"] is not None and not args.start_date)
             if args.start_date:
                 start_dt = parse_utc(args.start_date)
             elif before_state["latest_now"] is not None:
@@ -158,6 +166,8 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
                     }
                     if args.workchain != "all":
                         params["workchain"] = int(args.workchain)
+                    if use_start_lt:
+                        params["start_lt"] = int(before_state["latest_lt"]) + 1
 
                     transactions = fetch_transactions(
                         session=session,
@@ -207,6 +217,8 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
             "update_finished_at_utc": finished_at.isoformat(),
             "query_start_utc": start_dt.isoformat(),
             "query_end_utc": end_dt.isoformat(),
+            "incremental_mode": "start_lt" if use_start_lt else "utime",
+            "query_start_lt": int(before_state["latest_lt"]) + 1 if use_start_lt else None,
             "previous_latest_now": before_state["latest_now"],
             "previous_latest_iso_utc": before_state["latest_iso_utc"],
             "latest_now": after_state["latest_now"],
@@ -262,7 +274,8 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
     existing = load_existing_raw(raw_path)
     before_state = latest_state(existing)
 
-    end_dt = parse_utc(args.end_date) or datetime.now(UTC).replace(microsecond=0)
+    end_dt = parse_utc(args.end_date) or default_end_datetime(args.include_partial_hour)
+    use_start_lt = bool(before_state["latest_lt"] is not None and not args.start_date)
     if args.start_date:
         start_dt = parse_utc(args.start_date)
     elif before_state["latest_now"] is not None:
@@ -308,6 +321,8 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
                 }
                 if args.workchain != "all":
                     params["workchain"] = int(args.workchain)
+                if use_start_lt:
+                    params["start_lt"] = int(before_state["latest_lt"]) + 1
 
                 transactions = fetch_transactions(
                     session=session,
@@ -357,6 +372,8 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
             "update_finished_at_utc": finished_at.isoformat(),
             "query_start_utc": start_dt.isoformat(),
             "query_end_utc": end_dt.isoformat(),
+            "incremental_mode": "start_lt" if use_start_lt else "utime",
+            "query_start_lt": int(before_state["latest_lt"]) + 1 if use_start_lt else None,
             "previous_latest_now": before_state["latest_now"],
             "previous_latest_iso_utc": before_state["latest_iso_utc"],
             "latest_now": after_state["latest_now"],
@@ -408,7 +425,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--start-date", default=None, help="Override UTC start date for this update.")
     parser.add_argument("--end-date", default=None, help="Override UTC end date for this update.")
     parser.add_argument("--bootstrap-days", type=int, default=1, help="Lookback used when raw CSV does not exist.")
-    parser.add_argument("--overlap-seconds", type=int, default=3600, help="Re-fetch overlap before latest timestamp.")
+    parser.add_argument("--overlap-seconds", type=int, default=300, help="Re-fetch overlap before latest timestamp.")
+    parser.add_argument(
+        "--include-partial-hour",
+        action="store_true",
+        help="Include the currently in-progress UTC hour instead of stopping at the last completed hour.",
+    )
     parser.add_argument("--window-hours", type=int, default=1)
     parser.add_argument("--limit", type=int, default=1000)
     parser.add_argument("--max-pages-per-window", type=int, default=1)

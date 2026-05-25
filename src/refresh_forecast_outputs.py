@@ -70,6 +70,7 @@ def collect_recent_raw(args: argparse.Namespace, start_dt: datetime, end_dt: dat
         end_date=end_dt.isoformat(),
         bootstrap_days=args.bootstrap_days,
         overlap_seconds=0,
+        include_partial_hour=False,
         window_hours=args.window_hours,
         limit=args.limit,
         max_pages_per_window=args.max_pages_per_window,
