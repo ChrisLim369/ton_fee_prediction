@@ -14,6 +14,7 @@ import argparse
 import csv
 import json
 import os
+import random
 import sys
 import time
 from datetime import UTC, datetime, timedelta
@@ -189,8 +190,8 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
 
                     if len(transactions) < args.limit:
                         break
-                    time.sleep(sleep_seconds)
-                time.sleep(sleep_seconds)
+                    time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
+                time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
 
         temp_path.replace(raw_path)
         finished_at = datetime.now(UTC)
@@ -328,8 +329,8 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
 
                 if len(transactions) < args.limit:
                     break
-                time.sleep(sleep_seconds)
-            time.sleep(sleep_seconds)
+                time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
+            time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
 
         fetched = pd.DataFrame(fetched_rows, columns=RAW_COLUMNS)
         old_keys = set(zip(existing["hash"].astype(str), existing["lt"].astype(str), strict=False))

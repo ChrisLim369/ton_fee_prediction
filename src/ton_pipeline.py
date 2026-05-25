@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
+import random
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -14,6 +16,8 @@ import pandas as pd
 import requests
 
 
+logger = logging.getLogger(__name__)
+USER_AGENT = "ton-fee-prediction/1.0 (+https://github.com/ChrisLim369/ton_fee_prediction)"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 RAW_COLUMNS = [
@@ -356,8 +360,11 @@ def as_int(value: Any, default: int | None = 0) -> int | None:
     if value is None or value == "":
         return default
     try:
+        if isinstance(value, str):
+            return int(value, 0)
         return int(value)
     except (TypeError, ValueError):
+        logger.warning("as_int parse failure: %r", value)
         return default
 
 
@@ -453,7 +460,9 @@ def fetch_transactions(
     params: dict[str, Any],
     max_retries: int = 5,
 ) -> list[dict[str, Any]]:
-    headers = {"X-API-Key": api_key} if api_key else {}
+    headers = {"User-Agent": USER_AGENT}
+    if api_key:
+        headers["X-API-Key"] = api_key
     url = f"{base_url.rstrip('/')}/transactions"
     last_error = None
 
@@ -462,17 +471,22 @@ def fetch_transactions(
             response = session.get(url, params=params, headers=headers, timeout=60)
         except requests.RequestException as exc:
             last_error = str(exc)
-            time.sleep(min(2**attempt, 30))
+            time.sleep(min(2**attempt, 30) * random.uniform(0.9, 1.1))
             continue
 
         if response.status_code == 200:
-            return response.json().get("transactions", [])
+            try:
+                return response.json().get("transactions", [])
+            except ValueError as exc:
+                last_error = str(exc)
+                time.sleep(min(2**attempt, 30) * random.uniform(0.9, 1.1))
+                continue
 
         if response.status_code in {429, 500, 502, 503, 504}:
             retry_after = response.headers.get("Retry-After")
             wait = int(retry_after) if retry_after and retry_after.isdigit() else min(2**attempt, 60)
             last_error = f"HTTP {response.status_code}: {response.text[:300]}"
-            time.sleep(wait)
+            time.sleep(wait * random.uniform(0.9, 1.1))
             continue
 
         raise RuntimeError(f"TON Center request failed with HTTP {response.status_code}: {response.text[:500]}")

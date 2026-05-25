@@ -14,7 +14,9 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import logging
 import os
+import random
 import sys
 import time
 from datetime import UTC, datetime, timedelta
@@ -24,6 +26,8 @@ from typing import Any
 import requests
 
 
+logger = logging.getLogger(__name__)
+USER_AGENT = "ton-fee-prediction/1.0 (+https://github.com/ChrisLim369/ton_fee_prediction)"
 RAW_COLUMNS = [
     "hash",
     "now",
@@ -78,8 +82,11 @@ def as_int(value: Any, default: int | None = 0) -> int | None:
     if value is None or value == "":
         return default
     try:
+        if isinstance(value, str):
+            return int(value, 0)
         return int(value)
     except (TypeError, ValueError):
+        logger.warning("as_int parse failure: %r", value)
         return default
 
 
@@ -183,7 +190,9 @@ def fetch_transactions(
     max_retries: int,
 ) -> list[dict[str, Any]]:
     """Fetch one page from /transactions with retry/backoff for 429/5xx."""
-    headers = {"X-API-Key": api_key} if api_key else {}
+    headers = {"User-Agent": USER_AGENT}
+    if api_key:
+        headers["X-API-Key"] = api_key
     url = f"{base_url.rstrip('/')}/transactions"
     last_error: str | None = None
 
@@ -193,18 +202,24 @@ def fetch_transactions(
         except requests.RequestException as exc:
             last_error = str(exc)
             wait = min(2**attempt, 30)
-            time.sleep(wait)
+            time.sleep(wait * random.uniform(0.9, 1.1))
             continue
 
         if response.status_code == 200:
-            payload = response.json()
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                last_error = str(exc)
+                wait = min(2**attempt, 30)
+                time.sleep(wait * random.uniform(0.9, 1.1))
+                continue
             return payload.get("transactions", [])
 
         if response.status_code in {429, 500, 502, 503, 504}:
             retry_after = response.headers.get("Retry-After")
             wait = int(retry_after) if retry_after and retry_after.isdigit() else min(2**attempt, 60)
             last_error = f"HTTP {response.status_code}: {response.text[:300]}"
-            time.sleep(wait)
+            time.sleep(wait * random.uniform(0.9, 1.1))
             continue
 
         raise RuntimeError(
@@ -297,13 +312,13 @@ def collect(args: argparse.Namespace) -> dict[str, Any]:
 
                 if len(transactions) < args.limit:
                     break
-                time.sleep(sleep_seconds)
+                time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
 
             if args.max_rows and len(rows_by_key) >= args.max_rows:
                 break
         if args.max_rows and len(rows_by_key) >= args.max_rows:
             break
-        time.sleep(sleep_seconds)
+        time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
 
     rows = sorted(
         rows_by_key.values(),
