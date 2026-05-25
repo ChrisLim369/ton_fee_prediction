@@ -67,7 +67,6 @@ def write_evaluation_report(
 
 def train(args: argparse.Namespace) -> dict[str, object]:
     hourly_path = resolve_path(args.features)
-    model_path = resolve_path(args.model)
     best_model_path = resolve_path(args.best_model)
     metrics_path = resolve_path(args.metrics)
     coefficients_path = resolve_path(args.coefficients)
@@ -96,7 +95,6 @@ def train(args: argparse.Namespace) -> dict[str, object]:
         max_folds=args.rolling_max_folds,
     )
 
-    model_path.parent.mkdir(parents=True, exist_ok=True)
     best_model_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     coefficients_path.parent.mkdir(parents=True, exist_ok=True)
@@ -106,8 +104,6 @@ def train(args: argparse.Namespace) -> dict[str, object]:
     rolling_backtest_path.parent.mkdir(parents=True, exist_ok=True)
     rolling_backtest_folds_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Keep the legacy path available, but now it stores the selected best model.
-    model_path.write_text(json.dumps(best_model, indent=2), encoding="utf-8")
     best_model_path.write_text(json.dumps(best_model, indent=2), encoding="utf-8")
     metrics_payload = {"model": str(best_model_path.relative_to(PROJECT_ROOT)), **summary}
     metrics_path.write_text(json.dumps(metrics_payload, indent=2), encoding="utf-8")
@@ -145,7 +141,6 @@ def train(args: argparse.Namespace) -> dict[str, object]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--features", default="hourly_features.csv")
-    parser.add_argument("--model", default="models/linear_regression_model.json")
     parser.add_argument("--best-model", default="models/best_model.json")
     parser.add_argument("--metrics", default="models/model_metrics.json")
     parser.add_argument("--coefficients", default="models/model_coefficients.csv")
