@@ -1,0 +1,57 @@
+{
+  "hash": "tx-normal",
+  "now": 1710000000,
+  "account": "EQDnormalAccount",
+  "lt": "1000000000001",
+  "mc_block_seqno": 123456,
+  "total_fees": "1234567",
+  "description": {
+    "type": "trans_ord",
+    "aborted": false,
+    "destroyed": false,
+    "compute_ph": {
+      "success": true,
+      "gas_used": "3210",
+      "gas_fees": "654321",
+      "vm_steps": 42
+    },
+    "storage_ph": {
+      "storage_fees_collected": "111",
+      "storage_fees_due": "0"
+    },
+    "action": {
+      "success": true,
+      "total_action_fees": "2222",
+      "total_fwd_fees": "3333",
+      "msgs_created": 2,
+      "tot_actions": 3,
+      "tot_msg_size": {
+        "bits": 512,
+        "cells": 4
+      }
+    }
+  },
+  "in_msg": {
+    "import_fee": "44",
+    "fwd_fee": "55",
+    "value": "1000000000",
+    "bounce": false
+  },
+  "out_msgs": [
+    {
+      "fwd_fee": "66",
+      "value": "200000000"
+    },
+    {
+      "fwd_fee": "77",
+      "value": "300000000"
+    }
+  ],
+  "account_state_before": {
+    "balance": "5000000000",
+    "account_status": "active"
+  },
+  "account_state_after": {
+    "balance": "4498765433"
+  }
+}

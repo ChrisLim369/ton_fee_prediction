@@ -1,0 +1,42 @@
+{
+  "hash": "tx-no-in-msg",
+  "now": 1710003600,
+  "account": "EQDnoInMsg",
+  "lt": "1000000000002",
+  "mc_block_seqno": 123457,
+  "total_fees": "1000",
+  "description": {
+    "type": "trans_ord",
+    "aborted": false,
+    "destroyed": false,
+    "compute_ph": {
+      "success": true,
+      "gas_used": "10",
+      "gas_fees": "20",
+      "vm_steps": 5
+    },
+    "storage_ph": {
+      "storage_fees_collected": "1",
+      "storage_fees_due": "0"
+    },
+    "action": {
+      "success": true,
+      "total_action_fees": "2",
+      "total_fwd_fees": "3",
+      "msgs_created": 1,
+      "tot_actions": 1,
+      "tot_msg_size": {
+        "bits": 128,
+        "cells": 1
+      }
+    }
+  },
+  "out_msgs": [],
+  "account_state_before": {
+    "balance": "1000000",
+    "account_status": "active"
+  },
+  "account_state_after": {
+    "balance": "999000"
+  }
+}

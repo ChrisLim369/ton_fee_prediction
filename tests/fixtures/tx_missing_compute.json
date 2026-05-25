@@ -1,0 +1,42 @@
+{
+  "hash": "tx-missing-compute",
+  "now": 1710010800,
+  "account": "EQDmissingCompute",
+  "lt": "1000000000004",
+  "mc_block_seqno": 123459,
+  "total_fees": "3000",
+  "description": {
+    "type": "trans_ord",
+    "aborted": false,
+    "destroyed": false,
+    "storage_ph": {
+      "storage_fees_collected": "3",
+      "storage_fees_due": "0"
+    },
+    "action": {
+      "success": true,
+      "total_action_fees": "4",
+      "total_fwd_fees": "5",
+      "msgs_created": 1,
+      "tot_actions": 1,
+      "tot_msg_size": {
+        "bits": 64,
+        "cells": 1
+      }
+    }
+  },
+  "in_msg": {
+    "import_fee": "7",
+    "fwd_fee": "8",
+    "value": "900",
+    "bounce": false
+  },
+  "out_msgs": [],
+  "account_state_before": {
+    "balance": "1000000",
+    "account_status": "active"
+  },
+  "account_state_after": {
+    "balance": "997000"
+  }
+}
