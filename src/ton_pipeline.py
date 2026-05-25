@@ -302,11 +302,11 @@ HOURLY_DICTIONARY = {
     "hour_of_day": "UTC hour number, 0-23.",
     "day_of_week": "UTC day of week, Monday=0.",
     "is_weekend": "1 for Saturday/Sunday UTC, otherwise 0.",
-    "fee_lag_1h": "avg_total_fee shifted back 1 hourly row.",
-    "fee_lag_3h": "avg_total_fee shifted back 3 hourly rows.",
-    "fee_lag_6h": "avg_total_fee shifted back 6 hourly rows.",
-    "fee_lag_12h": "avg_total_fee shifted back 12 hourly rows.",
-    "fee_lag_24h": "avg_total_fee shifted back 24 hourly rows.",
+    "fee_lag_1h": "avg_total_fee from exactly 1 hour earlier.",
+    "fee_lag_3h": "avg_total_fee from exactly 3 hours earlier.",
+    "fee_lag_6h": "avg_total_fee from exactly 6 hours earlier.",
+    "fee_lag_12h": "avg_total_fee from exactly 12 hours earlier.",
+    "fee_lag_24h": "avg_total_fee from exactly 24 hours earlier.",
     "rolling_avg_fee_3h": "Prior 3-hour rolling mean of avg_total_fee.",
     "rolling_avg_fee_6h": "Prior 6-hour rolling mean of avg_total_fee.",
     "rolling_avg_fee_12h": "Prior 12-hour rolling mean of avg_total_fee.",
@@ -330,7 +330,7 @@ HOURLY_DICTIONARY = {
     "p90_fee_change_3h": "Current p90_total_fee minus p90_total_fee from 3 hourly rows earlier.",
     "p90_fee_change_6h": "Current p90_total_fee minus p90_total_fee from 6 hourly rows earlier.",
     "p90_fee_change_24h": "Current p90_total_fee minus p90_total_fee from 24 hourly rows earlier.",
-    "same_hour_prev_day_fee": "avg_total_fee from the same UTC hour on the previous day.",
+    "same_hour_prev_day_fee": "avg_total_fee at the timestamp exactly 24 hours earlier.",
     "hour_sin": "Sine encoding of UTC hour of day.",
     "hour_cos": "Cosine encoding of UTC hour of day.",
     "day_sin": "Sine encoding of UTC day of week.",
@@ -612,10 +612,12 @@ def recompute_hourly_derived_features(hourly_df: pd.DataFrame) -> pd.DataFrame:
 
     hourly["hour"] = pd.to_datetime(hourly["hour"], utc=True)
     hourly = hourly.drop_duplicates(subset=["hour"], keep="last")
-    hourly = hourly.sort_values("hour").reset_index(drop=True)
+    hourly = hourly.sort_values("hour").set_index("hour").asfreq("h")
+    if "is_capped_hour" in hourly.columns:
+        hourly["is_capped_hour"] = hourly["is_capped_hour"].fillna(0).astype(int)
 
-    hourly["hour_of_day"] = hourly["hour"].dt.hour
-    hourly["day_of_week"] = hourly["hour"].dt.dayofweek
+    hourly["hour_of_day"] = hourly.index.hour
+    hourly["day_of_week"] = hourly.index.dayofweek
     hourly["is_weekend"] = hourly["day_of_week"].isin([5, 6]).astype(int)
 
     for lag in [1, 3, 6, 12, 24]:
@@ -646,12 +648,16 @@ def recompute_hourly_derived_features(hourly_df: pd.DataFrame) -> pd.DataFrame:
     hourly["target_next_hour_avg_fee"] = hourly["avg_total_fee"].shift(-1)
     if "std_total_fee" in hourly.columns:
         hourly["std_total_fee"] = hourly["std_total_fee"].fillna(0)
+    if "tx_count" in hourly.columns:
+        hourly = hourly[hourly["tx_count"].notna()].copy()
+    if "is_capped_hour" not in hourly.columns:
+        hourly["is_capped_hour"] = 0
 
     for column in HOURLY_COLUMNS:
         if column not in hourly.columns:
             hourly[column] = np.nan
 
-    hourly["hour"] = hourly["hour"].dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    hourly["hour"] = hourly.index.strftime("%Y-%m-%dT%H:%M:%SZ")
     return hourly[HOURLY_COLUMNS]
 
 
