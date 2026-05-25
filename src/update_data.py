@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import logging
 import os
 import random
 import sys
@@ -35,6 +36,8 @@ from ton_pipeline import (
     resolve_path,
     write_raw_csv,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def load_existing_raw(path: Path) -> pd.DataFrame:
@@ -182,10 +185,9 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
                         windows_with_limit_hits += 1
 
                     if args.verbose:
-                        print(
+                        logger.info(
                             f"{window_start.isoformat()} page={page + 1} "
-                            f"fetched={len(transactions)} new_rows={new_rows_added}",
-                            flush=True,
+                            f"fetched={len(transactions)} new_rows={new_rows_added}"
                         )
 
                     if len(transactions) < args.limit:
@@ -321,10 +323,9 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
                     windows_with_limit_hits += 1
 
                 if args.verbose:
-                    print(
+                    logger.info(
                         f"{window_start.isoformat()} page={page + 1} "
-                        f"fetched={len(transactions)} total_fetched={len(fetched_rows)}",
-                        flush=True,
+                        f"fetched={len(transactions)} total_fetched={len(fetched_rows)}"
                     )
 
                 if len(transactions) < args.limit:
@@ -428,6 +429,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
+    logging.basicConfig(
+        level=logging.INFO if args.verbose else logging.WARNING,
+        format="%(levelname)s:%(name)s:%(message)s",
+    )
     if args.limit < 1 or args.limit > 1000:
         parser.error("--limit must be between 1 and 1000")
     if args.window_hours < 1:

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -168,6 +169,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(name)s:%(message)s")
     if args.horizon_hours < 1:
         raise ValueError("--horizon-hours must be at least 1")
     print(json.dumps(generate(args), indent=2))

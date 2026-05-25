@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from argparse import Namespace
 from datetime import UTC, datetime, timedelta
@@ -129,7 +130,7 @@ def update_metadata(
             predictions = pd.read_csv(predictions_path)
             if not predictions.empty:
                 generated_at = predictions.iloc[0].get("forecast_generated_at")
-        except Exception:
+        except (OSError, pd.errors.ParserError, KeyError):
             generated_at = None
 
     payload = {
@@ -246,6 +247,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
+    logging.basicConfig(
+        level=logging.INFO if args.verbose else logging.WARNING,
+        format="%(levelname)s:%(name)s:%(message)s",
+    )
     result = refresh(args)
     print(json.dumps(result, indent=2))
     return 0

@@ -301,10 +301,9 @@ def collect(args: argparse.Namespace) -> dict[str, Any]:
                     windows_with_limit_hits += 1
 
                 if args.verbose:
-                    print(
+                    logger.info(
                         f"{window_start.isoformat()} sort={sort} page={page + 1} "
-                        f"fetched={len(transactions)} unique_rows={len(rows_by_key)}",
-                        flush=True,
+                        f"fetched={len(transactions)} unique_rows={len(rows_by_key)}"
                     )
 
                 if len(transactions) < args.limit:
@@ -376,6 +375,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
+    logging.basicConfig(
+        level=logging.INFO if args.verbose else logging.WARNING,
+        format="%(levelname)s:%(name)s:%(message)s",
+    )
     if args.limit < 1 or args.limit > 1000:
         parser.error("--limit must be between 1 and 1000")
     if args.window_hours < 1:

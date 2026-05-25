@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 
 import pandas as pd
@@ -162,6 +163,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(name)s:%(message)s")
     if not 0 < args.test_fraction < 1:
         raise ValueError("--test-fraction must be between 0 and 1")
     print(json.dumps(train(args), indent=2))
