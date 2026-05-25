@@ -792,18 +792,6 @@ def split_model_data(
 def build_model_candidates() -> list[dict[str, Any]]:
     return [
         {
-            "model_name": "linear_regression",
-            "model_type": "ordinary_least_squares_linear_regression",
-            "alpha": 0.0,
-            "target_transform": "none",
-        },
-        {
-            "model_name": "linear_regression_log1p_target",
-            "model_type": "ordinary_least_squares_linear_regression",
-            "alpha": 0.0,
-            "target_transform": "log1p",
-        },
-        {
             "model_name": "ridge_alpha_1",
             "model_type": "ridge_regression",
             "alpha": 1.0,
@@ -1276,15 +1264,9 @@ def train_model_suite(
         "best_r2": float(comparison.iloc[0]["r2"]),
         "best_mae": float(comparison.iloc[0]["mae"]),
         "best_rmse": float(comparison.iloc[0]["rmse"]),
-        "baseline_r2": float(comparison.loc[comparison["model_name"] == "linear_regression", "r2"].iloc[0]),
-        "baseline_mae": float(comparison.loc[comparison["model_name"] == "linear_regression", "mae"].iloc[0]),
-        "baseline_rmse": float(comparison.loc[comparison["model_name"] == "linear_regression", "rmse"].iloc[0]),
         "train_rows": int(split["train_rows"]),
         "test_rows": int(split["test_rows"]),
     }
-    summary["r2_improvement"] = summary["best_r2"] - summary["baseline_r2"]
-    summary["mae_improvement"] = summary["baseline_mae"] - summary["best_mae"]
-    summary["rmse_improvement"] = summary["baseline_rmse"] - summary["best_rmse"]
 
     return best_model, comparison, feature_importance, best_actual_vs_predicted, summary
 

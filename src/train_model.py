@@ -23,25 +23,19 @@ def write_evaluation_report(
     comparison: pd.DataFrame,
     rolling_summary: pd.DataFrame | None = None,
 ) -> None:
-    baseline_r2 = float(summary["baseline_r2"])
     best_r2 = float(summary["best_r2"])
-    r2_improvement = float(summary["r2_improvement"])
-    direction = "improved" if r2_improvement > 0 else "did not improve"
     lines = [
         "# Model Evaluation Report",
         "",
         "## Summary",
         "",
         f"- Best model: `{summary['best_model_name']}`",
-        f"- Baseline Linear Regression R2: {baseline_r2:.6f}",
         f"- Best model R2: {best_r2:.6f}",
-        f"- R2 change: {r2_improvement:.6f}",
-        f"- MAE change: {float(summary['mae_improvement']):.3f} nanoton",
-        f"- RMSE change: {float(summary['rmse_improvement']):.3f} nanoton",
+        f"- Best model MAE: {float(summary['best_mae']):.3f} nanoton",
+        f"- Best model RMSE: {float(summary['best_rmse']):.3f} nanoton",
         "",
         "## Interpretation",
         "",
-        f"The best model {direction} over the plain linear-regression baseline on the chronological holdout split.",
         "Low or negative R2 means next-hour fee prediction is still noisy relative to a test-period mean benchmark.",
         "If the best model is nonlinear, treat the gain as useful but still validate it with rolling backtests before relying on it operationally.",
         "The next priorities are more uniform historical backfill, uncertainty ranges, and outlier/log-target handling.",
