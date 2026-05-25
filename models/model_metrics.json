@@ -4,6 +4,8 @@
   "best_r2": 0.09864192746421929,
   "best_mae": 159700.65076625563,
   "best_rmse": 214550.78464008437,
+  "best_directional_accuracy": 0.7034482758620689,
+  "selected_by": "rolling backtest mean R2 (tie-break median RMSE)",
   "train_rows": 580,
   "test_rows": 145
 }

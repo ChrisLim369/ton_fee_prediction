@@ -60,13 +60,12 @@
     "p90_fee_change_3h",
     "p90_fee_change_6h",
     "p90_fee_change_24h",
-    "same_hour_prev_day_fee",
     "hour_sin",
     "hour_cos",
     "day_sin",
     "day_cos"
   ],
-  "trained_at_utc": "2026-05-25T07:44:02.650836+00:00",
+  "trained_at_utc": "2026-05-25T11:58:47.718651+00:00",
   "initial_prediction": 2326714.502108621,
   "learning_rate": 0.03,
   "n_estimators": 200,
@@ -699,7 +698,7 @@
     },
     {
       "value": -5.050016374423586e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -88416.29545566374,
@@ -764,7 +763,7 @@
     },
     {
       "value": -5.114245517500515e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -85109.32950918093,
@@ -816,7 +815,7 @@
     },
     {
       "value": -4.961701302692808e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -82220.83203635449,
@@ -868,7 +867,7 @@
     },
     {
       "value": -8.422046385962388e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -79186.64923091567,
@@ -946,7 +945,7 @@
     },
     {
       "value": -6.575458522500663e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -76091.24247575803,
@@ -998,7 +997,7 @@
     },
     {
       "value": -8.470218243270084e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -73431.51911324724,
@@ -1076,7 +1075,7 @@
     },
     {
       "value": -4.560269158461998e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -70911.70920255718,
@@ -1115,7 +1114,7 @@
     },
     {
       "value": -2.9625692244233756e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -22628.52216476346,
@@ -1154,7 +1153,7 @@
     },
     {
       "value": -3.9500922992311676e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -22076.763208881795,
@@ -1193,7 +1192,7 @@
     },
     {
       "value": -4.6004123728850794e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -66710.18318574132,
@@ -1245,7 +1244,7 @@
     },
     {
       "value": -3.1391993678849317e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -21277.548347556436,
@@ -1297,7 +1296,7 @@
     },
     {
       "value": -2.866225509807981e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -63486.434894016216,
@@ -1323,7 +1322,7 @@
     },
     {
       "value": -3.588803369423439e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -20450.692498484426,
@@ -1388,7 +1387,7 @@
     },
     {
       "value": -3.2797006183657155e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -19928.08591520683,
@@ -1492,7 +1491,7 @@
     },
     {
       "value": -5.599978412019796e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -19348.23108563904,
@@ -1609,7 +1608,7 @@
     },
     {
       "value": -6.346642200289101e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -57155.796376130245,
@@ -1622,7 +1621,7 @@
     },
     {
       "value": -5.222632196442835e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -18456.90789823733,
@@ -1700,7 +1699,7 @@
     },
     {
       "value": -4.5161116225966093e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -18021.906241916746,
@@ -1778,7 +1777,7 @@
     },
     {
       "value": -1.5374851124040013e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -17464.843808289395,
@@ -1882,7 +1881,7 @@
     },
     {
       "value": -3.014755403173381e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -16900.73552135199,
@@ -1947,7 +1946,7 @@
     },
     {
       "value": -3.913963406250395e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -50738.302912294916,
@@ -1973,7 +1972,7 @@
     },
     {
       "value": -4.973744267019732e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -16288.945983857486,
@@ -2090,7 +2089,7 @@
     },
     {
       "value": -4.05045033528887e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -15727.564685658774,
@@ -2181,7 +2180,7 @@
     },
     {
       "value": -5.977324627596757e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -15289.273782294456,
@@ -2246,7 +2245,7 @@
     },
     {
       "value": -8.18520142086621e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -45823.81337570452,
@@ -2311,7 +2310,7 @@
     },
     {
       "value": -1.0593794286251068e-09,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -14578.723473267779,
@@ -2415,7 +2414,7 @@
     },
     {
       "value": -7.253878846250732e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -14166.345048679974,
@@ -2480,7 +2479,7 @@
     },
     {
       "value": -3.552674476442666e-10,
-      "feature_index": 57,
+      "feature_index": 56,
       "threshold": -1.2309117838683576,
       "left": {
         "value": -42280.14212762131,
@@ -2519,7 +2518,7 @@
     },
     {
       "value": -6.555386915289122e-10,
-      "feature_index": 58,
+      "feature_index": 57,
       "threshold": 0.7121397249753796,
       "left": {
         "value": -13621.852126323434,
@@ -2731,7 +2730,6 @@
     "p90_fee_change_3h": -106.7000000011176,
     "p90_fee_change_6h": 6.399999999906867,
     "p90_fee_change_24h": -3071.0499999998137,
-    "same_hour_prev_day_fee": 2300903.8382,
     "hour_sin": 1.2246467991473532e-16,
     "hour_cos": -1.8369701987210294e-16,
     "day_sin": 0.0,
@@ -2794,7 +2792,6 @@
     "p90_fee_change_3h": -2432.371896551725,
     "p90_fee_change_6h": -174.8158620689546,
     "p90_fee_change_24h": -8782.936551724095,
-    "same_hour_prev_day_fee": 2327153.3022189653,
     "hour_sin": 0.006101824157344906,
     "hour_cos": -0.002527458321188103,
     "day_sin": 0.024897013821769662,
@@ -2857,7 +2854,6 @@
     "p90_fee_change_3h": 756068.925665374,
     "p90_fee_change_6h": 808520.1974294411,
     "p90_fee_change_24h": 835840.7216063883,
-    "same_hour_prev_day_fee": 258191.9451235677,
     "hour_sin": 0.708521308652168,
     "hour_cos": 0.7056585115211229,
     "day_sin": 0.7032170710142445,
@@ -2868,6 +2864,7 @@
     "rmse": 214550.78464008437,
     "r2": 0.09864192746421929,
     "mape": 6.437748551659257,
+    "directional_accuracy": 0.7034482758620689,
     "model_name": "gradient_boosted_stumps_200_lr_0_03",
     "model_type": "gradient_boosted_regression_trees",
     "target_transform": "none",
