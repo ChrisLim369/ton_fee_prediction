@@ -989,7 +989,7 @@ def fit_naive_model(
     baseline_kind: str,
 ) -> tuple[dict[str, Any], pd.DataFrame, dict[str, float], pd.DataFrame]:
     predictions = naive_predictions(split, baseline_kind)
-    metrics = compute_metrics(split["y_test"], predictions)
+    metrics = compute_metrics(split["y_test"], predictions, split["test_current_fee"])
     metrics.update(
         {
             "model_name": model_name,
@@ -1055,7 +1055,11 @@ def regression_coefficients(
     return beta.astype(float)
 
 
-def compute_metrics(y_true: np.ndarray, predictions: np.ndarray) -> dict[str, float]:
+def compute_metrics(
+    y_true: np.ndarray,
+    predictions: np.ndarray,
+    current_fee: pd.Series | np.ndarray | None = None,
+) -> dict[str, float]:
     residuals = y_true - predictions
     mae = float(np.mean(np.abs(residuals)))
     rmse = float(np.sqrt(np.mean(residuals**2)))
@@ -1067,7 +1071,17 @@ def compute_metrics(y_true: np.ndarray, predictions: np.ndarray) -> dict[str, fl
         if np.any(nonzero)
         else float("nan")
     )
-    return {"mae": mae, "rmse": rmse, "r2": r2, "mape": mape}
+    directional_accuracy = float("nan")
+    if current_fee is not None:
+        current = np.asarray(current_fee, dtype=float)
+        directional_accuracy = float(np.mean(np.sign(predictions - current) == np.sign(y_true - current)))
+    return {
+        "mae": mae,
+        "rmse": rmse,
+        "r2": r2,
+        "mape": mape,
+        "directional_accuracy": directional_accuracy,
+    }
 
 
 def predict_design(
@@ -1244,7 +1258,7 @@ def fit_gradient_boosted_tree_model(
     }
 
     predictions = predict_tree_ensemble(model, split["x_test_scaled"])
-    metrics = compute_metrics(split["y_test"], predictions)
+    metrics = compute_metrics(split["y_test"], predictions, split["test_current_fee"])
     metrics.update(
         {
             "model_name": model_name,
@@ -1314,7 +1328,7 @@ def fit_regression_model(
     coefficients = beta[1:].astype(float)
 
     predictions = predict_design(beta, split["x_test_scaled"], target_transform)
-    metrics = compute_metrics(split["y_test"], predictions)
+    metrics = compute_metrics(split["y_test"], predictions, split["test_current_fee"])
     metrics.update(
         {
             "model_name": model_name,
@@ -1419,6 +1433,7 @@ def train_model_suite(
         "best_r2": float(best_comparison_row["r2"]),
         "best_mae": float(best_comparison_row["mae"]),
         "best_rmse": float(best_comparison_row["rmse"]),
+        "best_directional_accuracy": float(best_comparison_row["directional_accuracy"]),
         "selected_by": selected_by,
         "train_rows": int(split["train_rows"]),
         "test_rows": int(split["test_rows"]),
@@ -1542,6 +1557,7 @@ def rolling_backtest_model_suite(
         "mae": ["mean", "median", "std"],
         "rmse": ["mean", "median", "std"],
         "mape": ["mean", "median"],
+        "directional_accuracy": ["mean", "median"],
         "fold": "count",
     }
     summary = fold_results.groupby(
@@ -1567,6 +1583,8 @@ def rolling_backtest_model_suite(
             "rmse_std": "std_rmse",
             "mape_mean": "mean_mape",
             "mape_median": "median_mape",
+            "directional_accuracy_mean": "mean_directional_accuracy",
+            "directional_accuracy_median": "median_directional_accuracy",
             "fold_count": "folds",
         }
     )

@@ -36,6 +36,7 @@ def write_evaluation_report(
         f"- Best model R2: {best_r2:.6f}",
         f"- Best model MAE: {float(summary['best_mae']):.3f} nanoton",
         f"- Best model RMSE: {float(summary['best_rmse']):.3f} nanoton",
+        f"- Best model directional accuracy: {float(summary['best_directional_accuracy']):.3f}",
         "",
         "## Interpretation",
         "",
