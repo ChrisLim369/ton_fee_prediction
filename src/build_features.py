@@ -7,13 +7,13 @@ import argparse
 import json
 import sys
 
-from ton_pipeline import (
+from features import (
     build_hourly_features,
     read_raw_transactions,
-    resolve_path,
     write_data_dictionary,
     write_summary,
 )
+from schema import resolve_path
 
 
 def build(args: argparse.Namespace) -> dict[str, object]:
