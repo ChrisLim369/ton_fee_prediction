@@ -559,8 +559,6 @@ class Dashboard:
         r2 = to_float(metrics.get("best_r2"))
         mae = to_float(metrics.get("best_mae"))
         rmse = to_float(metrics.get("best_rmse"))
-        baseline_r2 = to_float(metrics.get("baseline_r2"))
-        r2_improvement = to_float(metrics.get("r2_improvement"))
 
         lines = [
             "Best Model",
@@ -569,12 +567,9 @@ class Dashboard:
             f"R2: {format_metric(r2)}",
             f"MAE: {format_nanoton(mae)}",
             f"RMSE: {format_nanoton(rmse)}",
-            f"Baseline linear R2: {format_metric(baseline_r2)}",
-            f"R2 improvement vs baseline: {format_metric(r2_improvement)}",
             "",
             f"R2: the model explains about {percent_from_r2(r2)} of the variation in next-hour average fees. "
-            "That is better than the baseline here, but still low, so fee movement remains noisy and difficult "
-            "to predict.",
+            "Fee movement remains noisy and difficult to predict when this value is low or negative.",
             f"MAE: on average, the prediction is off by about {format_nanoton(mae)}. This is usually the most "
             "practical error number for reading the dashboard.",
             f"RMSE: {format_nanoton(rmse)}. RMSE penalizes large misses more than MAE, so it rises when the model "
@@ -606,8 +601,7 @@ class Dashboard:
             [
                 "",
                 f"Selected model: {selected.get('model_name', 'n/a')}. It is selected because it has the best "
-                "chronological holdout R2 in the saved comparison while keeping MAE/RMSE slightly better than "
-                "the baseline linear model.",
+                "chronological holdout R2 in the saved comparison while keeping MAE/RMSE competitive.",
                 "Interpretation: the nonlinear boosted model performs better than linear alternatives, but the "
                 "R2 is still modest, so it should be used as a directional forecasting tool.",
             ]
@@ -652,8 +646,8 @@ class Dashboard:
         )
         if holdout_r2 is not None and rolling_r2 is not None and rolling_r2 < holdout_r2 / 2:
             lines.append(
-                "Interpretation: rolling R2 is much lower than holdout R2. The model improves over baseline, "
-                "but performance is not stable across all time periods."
+                "Interpretation: rolling R2 is much lower than holdout R2, so performance is not stable "
+                "across all time periods."
             )
         else:
             lines.append(

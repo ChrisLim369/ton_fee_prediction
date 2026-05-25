@@ -340,10 +340,8 @@ class Dashboard {
       `R2: ${formatMetric(r2)}`,
       `MAE: ${formatNanoton(mae)}`,
       `RMSE: ${formatNanoton(rmse)}`,
-      `Baseline linear R2: ${formatMetric(metrics.baseline_r2)}`,
-      `R2 improvement vs baseline: ${formatMetric(metrics.r2_improvement)}`,
       "",
-      `R2: the model explains about ${percentFromR2(r2)} of the variation in next-hour average fees. That is better than the baseline here, but still low, so fee movement remains noisy and difficult to predict.`,
+      `R2: the model explains about ${percentFromR2(r2)} of the variation in next-hour average fees. Fee movement remains noisy and difficult to predict when this value is low or negative.`,
       `MAE: on average, the prediction is off by about ${formatNanoton(mae)}. This is usually the most practical error number for reading the dashboard.`,
       `RMSE: ${formatNanoton(rmse)}. RMSE penalizes large misses more than MAE, so it rises when the model has occasional large errors.`,
     ].join("\n");
@@ -365,7 +363,7 @@ class Dashboard {
     });
     lines.push(
       "",
-      `Selected model: ${stringValue(rows[0].model_name)}. It is selected because it has the best chronological holdout R2 in the saved comparison while keeping MAE/RMSE slightly better than the baseline linear model.`,
+      `Selected model: ${stringValue(rows[0].model_name)}. It is selected because it has the best chronological holdout R2 in the saved comparison while keeping MAE/RMSE competitive.`,
       "Interpretation: the nonlinear boosted model performs better than linear alternatives, but the R2 is still modest, so it should be used as a directional forecasting tool.",
     );
     return lines.join("\n");
@@ -408,7 +406,7 @@ class Dashboard {
     );
     if (holdoutR2 !== null && rollingR2 !== null && rollingR2 < holdoutR2 / 2) {
       lines.push(
-        "Interpretation: rolling R2 is much lower than holdout R2. The model improves over baseline, but performance is not stable across all time periods.",
+        "Interpretation: rolling R2 is much lower than holdout R2, so performance is not stable across all time periods.",
       );
     } else {
       lines.push(
