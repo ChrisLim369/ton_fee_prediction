@@ -273,9 +273,6 @@ def collect(args: argparse.Namespace) -> dict[str, Any]:
         windows_processed += 1
         for sort in sorts:
             for page in range(args.max_pages_per_window):
-                if args.max_rows and len(rows_by_key) >= args.max_rows:
-                    break
-
                 params = {
                     "start_utime": int(window_start.timestamp()),
                     "end_utime": int(window_end.timestamp()),
@@ -313,19 +310,16 @@ def collect(args: argparse.Namespace) -> dict[str, Any]:
                 if len(transactions) < args.limit:
                     break
                 time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
-
-            if args.max_rows and len(rows_by_key) >= args.max_rows:
-                break
-        if args.max_rows and len(rows_by_key) >= args.max_rows:
-            break
         time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
 
+    rows = list(rows_by_key.values())
+    if args.max_rows and len(rows) > args.max_rows:
+        rows = random.Random(42).sample(rows, args.max_rows)
+
     rows = sorted(
-        rows_by_key.values(),
+        rows,
         key=lambda row: ((row.get("now") or 0), str(row.get("account") or ""), row.get("lt") or 0),
     )
-    if args.max_rows:
-        rows = rows[: args.max_rows]
 
     write_rows(output_path, rows)
 
