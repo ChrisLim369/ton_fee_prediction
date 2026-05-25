@@ -285,7 +285,7 @@ HOURLY_DICTIONARY = {
     "avg_compute_fee": "Mean compute_gas_fees in nanoton.",
     "avg_storage_fee": "Mean storage_fees_collected in nanoton.",
     "avg_action_fee": "Mean total_action_fees in nanoton.",
-    "avg_forward_fee": "Mean of total_fwd_fees plus outbound forward fee sum in nanoton.",
+    "avg_forward_fee": "Mean action-phase total_fwd_fees in nanoton.",
     "avg_import_fee": "Mean inbound import fee in nanoton.",
     "avg_vm_steps": "Mean VM steps.",
     "avg_msgs_created": "Mean messages created.",
@@ -542,7 +542,7 @@ def read_raw_transactions(path: Path) -> pd.DataFrame:
 
 def build_hourly_features(raw_df: pd.DataFrame) -> pd.DataFrame:
     df = raw_df.copy()
-    df["forward_fee_total"] = df["total_fwd_fees"] + df["out_msg_fwd_fee_sum"]
+    df["forward_fee_total"] = df["total_fwd_fees"]
 
     grouped = df.groupby("hour", sort=True)
     hourly = grouped.agg(
