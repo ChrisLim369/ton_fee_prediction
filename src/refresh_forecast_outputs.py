@@ -24,6 +24,7 @@ import pandas as pd
 
 from generate_forecast import generate as generate_forecast
 from ton_pipeline import (
+    PROJECT_ROOT,
     build_hourly_features,
     read_raw_transactions,
     recompute_hourly_derived_features,
@@ -136,7 +137,7 @@ def update_metadata(
         "status": "success",
         "automation_mode": "persistent_raw_cache_merge" if args.use_raw_latest_state else "recent_raw_merge",
         "update_finished_at_utc": datetime.now(UTC).isoformat(),
-        "recent_raw_path": str(resolve_path(args.recent_raw)),
+        "recent_raw_path": str(resolve_path(args.recent_raw).relative_to(PROJECT_ROOT)),
         "recent_raw_rows_collected": merge_status["recent_raw_rows"],
         "recent_hourly_rows": merge_status["recent_hourly_rows"],
         "hourly_rows": merge_status["hourly_rows"],

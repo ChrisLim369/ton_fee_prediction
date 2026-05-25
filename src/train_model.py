@@ -11,6 +11,7 @@ import pandas as pd
 
 from ton_pipeline import (
     MODEL_FEATURE_COLUMNS,
+    PROJECT_ROOT,
     resolve_path,
     rolling_backtest_model_suite,
     train_model_suite,
@@ -108,7 +109,7 @@ def train(args: argparse.Namespace) -> dict[str, object]:
     # Keep the legacy path available, but now it stores the selected best model.
     model_path.write_text(json.dumps(best_model, indent=2), encoding="utf-8")
     best_model_path.write_text(json.dumps(best_model, indent=2), encoding="utf-8")
-    metrics_payload = {"model": str(best_model_path), **summary}
+    metrics_payload = {"model": str(best_model_path.relative_to(PROJECT_ROOT)), **summary}
     metrics_path.write_text(json.dumps(metrics_payload, indent=2), encoding="utf-8")
     comparison.to_csv(comparison_path, index=False)
     rolling_summary.to_csv(rolling_backtest_path, index=False)

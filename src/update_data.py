@@ -24,6 +24,7 @@ import pandas as pd
 import requests
 
 from ton_pipeline import (
+    PROJECT_ROOT,
     RAW_COLUMNS,
     as_int,
     fetch_transactions,
@@ -82,6 +83,7 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
     metadata_path = resolve_path(args.metadata)
     temp_path = raw_path.with_name(f".{raw_path.name}.tmp")
     started_at = datetime.now(UTC)
+    raw_path_status = str(raw_path.relative_to(PROJECT_ROOT))
 
     existing_keys: set[tuple[str, str]] = set()
     before_state = {"latest_now": None, "latest_lt": None, "latest_iso_utc": None}
@@ -123,7 +125,7 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
                     "reason": "start time is not before end time",
                     "update_started_at_utc": started_at.isoformat(),
                     "update_finished_at_utc": datetime.now(UTC).isoformat(),
-                    "raw_path": str(raw_path),
+                    "raw_path": raw_path_status,
                     **before_state,
                 }
                 save_last_updated(last_updated_path, status)
@@ -197,7 +199,7 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
             "mode": "stream",
             "endpoint": f"{args.base_url.rstrip('/')}/transactions",
             "api_key_used": bool(args.api_key or os.getenv("TONCENTER_API_KEY") or os.getenv("TON_API_KEY")),
-            "raw_path": str(raw_path),
+            "raw_path": raw_path_status,
             "update_started_at_utc": started_at.isoformat(),
             "update_finished_at_utc": finished_at.isoformat(),
             "query_start_utc": start_dt.isoformat(),
@@ -235,7 +237,7 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
             "status": "failed",
             "mode": "stream",
             "error": str(exc),
-            "raw_path": str(raw_path),
+            "raw_path": raw_path_status,
             "update_started_at_utc": started_at.isoformat(),
             "update_finished_at_utc": datetime.now(UTC).isoformat(),
             **before_state,
@@ -252,6 +254,7 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
     last_updated_path = resolve_path(args.last_updated)
     metadata_path = resolve_path(args.metadata)
     started_at = datetime.now(UTC)
+    raw_path_status = str(raw_path.relative_to(PROJECT_ROOT))
 
     existing = load_existing_raw(raw_path)
     before_state = latest_state(existing)
@@ -274,7 +277,7 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
             "reason": "start time is not before end time",
             "update_started_at_utc": started_at.isoformat(),
             "update_finished_at_utc": datetime.now(UTC).isoformat(),
-            "raw_path": str(raw_path),
+            "raw_path": raw_path_status,
             **before_state,
         }
         save_last_updated(last_updated_path, status)
@@ -347,7 +350,7 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
             "status": "success",
             "endpoint": f"{args.base_url.rstrip('/')}/transactions",
             "api_key_used": bool(api_key),
-            "raw_path": str(raw_path),
+            "raw_path": raw_path_status,
             "update_started_at_utc": started_at.isoformat(),
             "update_finished_at_utc": finished_at.isoformat(),
             "query_start_utc": start_dt.isoformat(),
@@ -383,7 +386,7 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
         failure = {
             "status": "failed",
             "error": str(exc),
-            "raw_path": str(raw_path),
+            "raw_path": raw_path_status,
             "update_started_at_utc": started_at.isoformat(),
             "update_finished_at_utc": datetime.now(UTC).isoformat(),
             "query_start_utc": start_dt.isoformat(),
