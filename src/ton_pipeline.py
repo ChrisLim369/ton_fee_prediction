@@ -795,6 +795,7 @@ def split_model_data(
     x = x.loc[usable].reset_index(drop=True)
     y = data.loc[usable, target_column].astype(float).reset_index(drop=True)
     hours = data.loc[usable, "hour"].reset_index(drop=True)
+    current_fee = pd.to_numeric(data.loc[usable, "avg_total_fee"], errors="coerce").astype(float).reset_index(drop=True)
 
     if len(x) < 10:
         raise ValueError("Need at least 10 hourly rows with targets to train the model.")
@@ -808,6 +809,7 @@ def split_model_data(
     x_test = x.iloc[split_index:].copy()
     y_test = y.iloc[split_index:].to_numpy(dtype=float)
     test_hours = hours.iloc[split_index:].reset_index(drop=True)
+    test_row_indices = np.arange(split_index, len(x))
 
     impute_values = x_train.median(numeric_only=True).fillna(0)
     x_train = x_train.fillna(impute_values)
@@ -824,6 +826,9 @@ def split_model_data(
         "y_train": y_train,
         "y_test": y_test,
         "test_hours": test_hours,
+        "test_current_fee": current_fee.iloc[split_index:].reset_index(drop=True),
+        "test_row_indices": test_row_indices,
+        "fee_history": current_fee,
         "impute_values": impute_values,
         "means": means,
         "stds": stds,
@@ -834,6 +839,24 @@ def split_model_data(
 
 def build_model_candidates() -> list[dict[str, Any]]:
     return [
+        {
+            "model_name": "persistence",
+            "model_type": "naive",
+            "baseline_kind": "persistence",
+            "target_transform": "none",
+        },
+        {
+            "model_name": "seasonal_naive_24h",
+            "model_type": "naive",
+            "baseline_kind": "seasonal_naive_24h",
+            "target_transform": "none",
+        },
+        {
+            "model_name": "rolling_mean_6h",
+            "model_type": "naive",
+            "baseline_kind": "rolling_mean_6h",
+            "target_transform": "none",
+        },
         {
             "model_name": "ridge_alpha_1",
             "model_type": "ridge_regression",
@@ -915,6 +938,15 @@ def fit_model_candidate(
     feature_columns: list[str],
     target_column: str,
 ) -> tuple[dict[str, Any], pd.DataFrame, dict[str, float], pd.DataFrame]:
+    if candidate["model_type"] == "naive":
+        return fit_naive_model(
+            split=split,
+            feature_columns=feature_columns,
+            target_column=target_column,
+            model_name=str(candidate["model_name"]),
+            baseline_kind=str(candidate["baseline_kind"]),
+        )
+
     if candidate["model_type"] == "gradient_boosted_regression_trees":
         return fit_gradient_boosted_tree_model(
             split=split,
@@ -934,6 +966,79 @@ def fit_model_candidate(
         target_column=target_column,
         **candidate,
     )
+
+
+def naive_predictions(split: dict[str, Any], baseline_kind: str) -> np.ndarray:
+    fee_history = split["fee_history"].reset_index(drop=True)
+    predictions: list[float] = []
+    for row_index in split["test_row_indices"]:
+        if baseline_kind == "persistence":
+            prediction = fee_history.iloc[row_index]
+        elif baseline_kind == "seasonal_naive_24h":
+            prediction = fee_history.iloc[row_index - 23] if row_index >= 23 else fee_history.iloc[0]
+        elif baseline_kind == "rolling_mean_6h":
+            start = max(0, row_index - 5)
+            prediction = fee_history.iloc[start : row_index + 1].mean()
+        else:
+            raise ValueError(f"Unsupported naive baseline: {baseline_kind}")
+        predictions.append(float(prediction))
+    return np.maximum(0.0, np.array(predictions, dtype=float))
+
+
+def fit_naive_model(
+    split: dict[str, Any],
+    feature_columns: list[str],
+    target_column: str,
+    model_name: str,
+    baseline_kind: str,
+) -> tuple[dict[str, Any], pd.DataFrame, dict[str, float], pd.DataFrame]:
+    predictions = naive_predictions(split, baseline_kind)
+    metrics = compute_metrics(split["y_test"], predictions)
+    metrics.update(
+        {
+            "model_name": model_name,
+            "model_type": "naive",
+            "target_transform": "none",
+            "alpha": 0.0,
+            "train_rows": split["train_rows"],
+            "test_rows": split["test_rows"],
+        }
+    )
+
+    residuals = split["y_test"] - predictions
+    actual_vs_predicted = pd.DataFrame(
+        {
+            "hour": split["test_hours"],
+            "actual_next_hour_avg_fee": split["y_test"],
+            "predicted_next_hour_avg_fee": predictions,
+            "error": residuals,
+            "absolute_error": np.abs(residuals),
+            "model_name": model_name,
+        }
+    )
+    model = {
+        "model_name": model_name,
+        "model_type": "naive",
+        "baseline_kind": baseline_kind,
+        "target_column": target_column,
+        "target_transform": "none",
+        "feature_columns": feature_columns,
+        "trained_at_utc": datetime.now(UTC).isoformat(),
+        "metrics": metrics,
+        "naive_state": {
+            "last_24_avg_total_fee": split["fee_history"].dropna().astype(float).tail(24).tolist(),
+        },
+    }
+    importance_table = pd.DataFrame(
+        columns=[
+            "model_name",
+            "feature",
+            "coefficient_scaled",
+            "abs_coefficient_scaled",
+            "tree_importance",
+        ]
+    )
+    return model, importance_table, metrics, actual_vs_predicted
 
 
 def regression_coefficients(
@@ -1318,6 +1423,7 @@ def _split_from_row_ranges(
     x: pd.DataFrame,
     y: pd.Series,
     hours: pd.Series,
+    current_fee: pd.Series,
     train_start: int,
     train_end: int,
     test_end: int,
@@ -1327,6 +1433,7 @@ def _split_from_row_ranges(
     x_test = x.iloc[train_end:test_end].copy()
     y_test = y.iloc[train_end:test_end].to_numpy(dtype=float)
     test_hours = hours.iloc[train_end:test_end].reset_index(drop=True)
+    test_row_indices = np.arange(train_end, test_end)
 
     impute_values = x_train.median(numeric_only=True).fillna(0)
     x_train = x_train.fillna(impute_values)
@@ -1343,6 +1450,9 @@ def _split_from_row_ranges(
         "y_train": y_train,
         "y_test": y_test,
         "test_hours": test_hours,
+        "test_current_fee": current_fee.iloc[train_end:test_end].reset_index(drop=True),
+        "test_row_indices": test_row_indices,
+        "fee_history": current_fee.reset_index(drop=True),
         "impute_values": impute_values,
         "means": means,
         "stds": stds,
@@ -1369,6 +1479,7 @@ def rolling_backtest_model_suite(
     x = x.loc[usable].reset_index(drop=True)
     y = data.loc[usable, target_column].astype(float).reset_index(drop=True)
     hours = data.loc[usable, "hour"].reset_index(drop=True)
+    current_fee = pd.to_numeric(data.loc[usable, "avg_total_fee"], errors="coerce").astype(float).reset_index(drop=True)
 
     if len(x) < min_train_rows + test_rows:
         raise ValueError(
@@ -1387,6 +1498,7 @@ def rolling_backtest_model_suite(
             x=x,
             y=y,
             hours=hours,
+            current_fee=current_fee,
             train_start=0,
             train_end=test_start,
             test_end=test_end,
@@ -1480,6 +1592,28 @@ def fit_linear_regression(
 
 
 def predict_with_model(model: dict[str, Any], feature_row: dict[str, Any]) -> float:
+    if model.get("model_type") == "naive":
+        history = feature_row.get("_fee_history")
+        if history:
+            history_values = [float(value) for value in history if not pd.isna(value)]
+        else:
+            history_values = [
+                float(value)
+                for value in model.get("naive_state", {}).get("last_24_avg_total_fee", [])
+                if not pd.isna(value)
+            ]
+        baseline_kind = model.get("baseline_kind")
+        if baseline_kind == "persistence":
+            value = float(feature_row.get("avg_total_fee", history_values[-1] if history_values else 0.0))
+        elif baseline_kind == "seasonal_naive_24h":
+            value = history_values[-24] if len(history_values) >= 24 else (history_values[0] if history_values else 0.0)
+        elif baseline_kind == "rolling_mean_6h":
+            window = history_values[-6:] if history_values else [float(feature_row.get("avg_total_fee", 0.0))]
+            value = float(np.mean(window))
+        else:
+            raise ValueError(f"Unsupported naive baseline: {baseline_kind}")
+        return max(0.0, float(value))
+
     if model.get("model_type") == "gradient_boosted_regression_trees":
         values: dict[str, float] = {}
         for feature in model["feature_columns"]:

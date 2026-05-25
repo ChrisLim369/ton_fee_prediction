@@ -130,6 +130,7 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
             feature_row = df.iloc[-1][model["feature_columns"]].to_dict()
         else:
             feature_row = synthetic_feature_row(df, feature_hour, history, model["feature_columns"])
+        feature_row["_fee_history"] = history.copy()
 
         prediction = predict_with_model(model, feature_row)
         history.append(prediction)
