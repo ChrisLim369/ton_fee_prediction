@@ -132,7 +132,7 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
                 temp_path.unlink(missing_ok=True)
                 return status
 
-            api_key = args.api_key or os.getenv("TONCENTER_API_KEY") or os.getenv("TON_API_KEY")
+            api_key = os.getenv("TONCENTER_API_KEY") or os.getenv("TON_API_KEY")
             sleep_seconds = args.sleep if args.sleep is not None else (0.12 if api_key else 1.1)
             session = requests.Session()
             after_state = dict(before_state)
@@ -198,7 +198,7 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
             "status": "success",
             "mode": "stream",
             "endpoint": f"{args.base_url.rstrip('/')}/transactions",
-            "api_key_used": bool(args.api_key or os.getenv("TONCENTER_API_KEY") or os.getenv("TON_API_KEY")),
+            "api_key_used": bool(api_key),
             "raw_path": raw_path_status,
             "update_started_at_utc": started_at.isoformat(),
             "update_finished_at_utc": finished_at.isoformat(),
@@ -283,7 +283,7 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
         save_last_updated(last_updated_path, status)
         return status
 
-    api_key = args.api_key or os.getenv("TONCENTER_API_KEY") or os.getenv("TON_API_KEY")
+    api_key = os.getenv("TONCENTER_API_KEY") or os.getenv("TON_API_KEY")
     sleep_seconds = args.sleep if args.sleep is not None else (0.12 if api_key else 1.1)
     session = requests.Session()
 
@@ -403,7 +403,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--last-updated", default="last_updated.json")
     parser.add_argument("--metadata", default="collection_metadata.json")
     parser.add_argument("--base-url", default="https://toncenter.com/api/v3")
-    parser.add_argument("--api-key", default=None)
     parser.add_argument("--start-date", default=None, help="Override UTC start date for this update.")
     parser.add_argument("--end-date", default=None, help="Override UTC end date for this update.")
     parser.add_argument("--bootstrap-days", type=int, default=1, help="Lookback used when raw CSV does not exist.")

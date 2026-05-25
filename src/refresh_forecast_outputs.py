@@ -65,7 +65,6 @@ def collect_recent_raw(args: argparse.Namespace, start_dt: datetime, end_dt: dat
         last_updated=str(recent_status_path),
         metadata=str(recent_status_path),
         base_url=args.base_url,
-        api_key=args.api_key,
         start_date=None if args.use_raw_latest_state else start_dt.isoformat(),
         end_date=end_dt.isoformat(),
         bootstrap_days=args.bootstrap_days,
@@ -220,7 +219,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--metadata", default="collection_metadata.json")
     parser.add_argument("--horizon-hours", type=int, default=24)
     parser.add_argument("--base-url", default="https://toncenter.com/api/v3")
-    parser.add_argument("--api-key", default=None)
     parser.add_argument("--window-hours", type=int, default=1)
     parser.add_argument("--limit", type=int, default=1000)
     parser.add_argument("--max-pages-per-window", type=int, default=1)

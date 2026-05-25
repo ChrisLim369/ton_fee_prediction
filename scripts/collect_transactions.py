@@ -244,7 +244,7 @@ def collect(args: argparse.Namespace) -> dict[str, Any]:
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    api_key = args.api_key or os.getenv("TONCENTER_API_KEY") or os.getenv("TON_API_KEY")
+    api_key = os.getenv("TONCENTER_API_KEY") or os.getenv("TON_API_KEY")
     sleep_seconds = args.sleep if args.sleep is not None else (0.12 if api_key else 1.1)
     sorts = ["asc", "desc"] if args.sort == "both" else [args.sort]
 
@@ -344,7 +344,6 @@ def collect(args: argparse.Namespace) -> dict[str, Any]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="https://toncenter.com/api/v3")
-    parser.add_argument("--api-key", default=None, help="TON Center API key. Defaults to TONCENTER_API_KEY env var.")
     parser.add_argument("--output", default="raw_transactions.csv")
     parser.add_argument("--start-date", default=None, help="UTC YYYY-MM-DD or ISO timestamp.")
     parser.add_argument("--end-date", default=None, help="UTC YYYY-MM-DD or ISO timestamp. Defaults to current UTC hour.")
