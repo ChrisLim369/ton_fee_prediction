@@ -32,6 +32,7 @@ def write_evaluation_report(
         "## Summary",
         "",
         f"- Best model: `{summary['best_model_name']}`",
+        f"- Selected by: {summary.get('selected_by', 'chronological holdout R2')}",
         f"- Best model R2: {best_r2:.6f}",
         f"- Best model MAE: {float(summary['best_mae']):.3f} nanoton",
         f"- Best model RMSE: {float(summary['best_rmse']):.3f} nanoton",
@@ -80,12 +81,6 @@ def train(args: argparse.Namespace) -> dict[str, object]:
 
     hourly_df = pd.read_csv(hourly_path)
     feature_columns = args.feature_columns or MODEL_FEATURE_COLUMNS
-    best_model, comparison, feature_importance, actual_vs_predicted, summary = train_model_suite(
-        hourly_df=hourly_df,
-        feature_columns=feature_columns,
-        target_column=args.target,
-        test_fraction=args.test_fraction,
-    )
     rolling_summary, rolling_folds = rolling_backtest_model_suite(
         hourly_df=hourly_df,
         feature_columns=feature_columns,
@@ -94,6 +89,13 @@ def train(args: argparse.Namespace) -> dict[str, object]:
         test_rows=args.rolling_test_rows,
         step_rows=args.rolling_step_rows,
         max_folds=args.rolling_max_folds,
+    )
+    best_model, comparison, feature_importance, actual_vs_predicted, summary = train_model_suite(
+        hourly_df=hourly_df,
+        feature_columns=feature_columns,
+        target_column=args.target,
+        test_fraction=args.test_fraction,
+        rolling_summary=rolling_summary,
     )
 
     best_model_path.parent.mkdir(parents=True, exist_ok=True)

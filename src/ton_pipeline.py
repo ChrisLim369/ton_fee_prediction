@@ -1375,6 +1375,7 @@ def train_model_suite(
     feature_columns: list[str] = MODEL_FEATURE_COLUMNS,
     target_column: str = "target_next_hour_avg_fee",
     test_fraction: float = 0.2,
+    rolling_summary: pd.DataFrame | None = None,
 ) -> tuple[dict[str, Any], pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     split = split_model_data(hourly_df, feature_columns, target_column, test_fraction)
     candidates = build_model_candidates()
@@ -1400,7 +1401,17 @@ def train_model_suite(
         ["r2", "rmse", "mae"],
         ascending=[False, True, True],
     )
-    best_model_name = str(comparison.iloc[0]["model_name"])
+    selected_by = "chronological holdout R2"
+    if rolling_summary is not None and not rolling_summary.empty:
+        rolling_selection = rolling_summary.sort_values(
+            ["mean_r2", "median_rmse"],
+            ascending=[False, True],
+        )
+        best_model_name = str(rolling_selection.iloc[0]["model_name"])
+        selected_by = "rolling backtest mean R2 (tie-break median RMSE)"
+    else:
+        best_model_name = str(comparison.iloc[0]["model_name"])
+    best_comparison_row = comparison[comparison["model_name"] == best_model_name].iloc[0]
     best_model = next(model for model in trained if model["model_name"] == best_model_name)
     feature_importance = pd.concat(coefficient_tables, ignore_index=True)
     best_actual_vs_predicted = next(
@@ -1409,9 +1420,10 @@ def train_model_suite(
 
     summary = {
         "best_model_name": best_model_name,
-        "best_r2": float(comparison.iloc[0]["r2"]),
-        "best_mae": float(comparison.iloc[0]["mae"]),
-        "best_rmse": float(comparison.iloc[0]["rmse"]),
+        "best_r2": float(best_comparison_row["r2"]),
+        "best_mae": float(best_comparison_row["mae"]),
+        "best_rmse": float(best_comparison_row["rmse"]),
+        "selected_by": selected_by,
         "train_rows": int(split["train_rows"]),
         "test_rows": int(split["test_rows"]),
     }
@@ -1564,8 +1576,8 @@ def rolling_backtest_model_suite(
     )
     summary["r2_win_count"] = summary["model_name"].map(win_counts).fillna(0).astype(int)
     summary = summary.sort_values(
-        ["mean_r2", "median_r2", "mean_rmse"],
-        ascending=[False, False, True],
+        ["mean_r2", "median_rmse"],
+        ascending=[False, True],
     ).reset_index(drop=True)
     fold_results = fold_results.merge(winners, on="fold", how="left")
     return summary, fold_results
