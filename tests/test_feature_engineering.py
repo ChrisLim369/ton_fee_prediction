@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from src.ton_pipeline import recompute_hourly_derived_features
+from src.features import recompute_hourly_derived_features
 
 
 def hourly_frame(hours: pd.DatetimeIndex, fees: list[float]) -> pd.DataFrame:

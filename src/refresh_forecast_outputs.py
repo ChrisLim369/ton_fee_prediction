@@ -23,14 +23,9 @@ from typing import Any
 
 import pandas as pd
 
+from features import build_hourly_features, read_raw_transactions, recompute_hourly_derived_features
 from generate_forecast import generate as generate_forecast
-from ton_pipeline import (
-    PROJECT_ROOT,
-    build_hourly_features,
-    read_raw_transactions,
-    recompute_hourly_derived_features,
-    resolve_path,
-)
+from schema import PROJECT_ROOT, resolve_path
 from update_data import update as update_raw_data
 
 

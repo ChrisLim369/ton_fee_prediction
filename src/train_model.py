@@ -10,13 +10,9 @@ import sys
 
 import pandas as pd
 
-from ton_pipeline import (
-    MODEL_FEATURE_COLUMNS,
-    PROJECT_ROOT,
-    resolve_path,
-    rolling_backtest_model_suite,
-    train_model_suite,
-)
+from models.backtest import rolling_backtest_model_suite
+from models.suite import train_model_suite
+from schema import MODEL_FEATURE_COLUMNS, PROJECT_ROOT, resolve_path
 
 
 def write_evaluation_report(

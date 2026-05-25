@@ -25,17 +25,8 @@ from typing import Any
 import pandas as pd
 import requests
 
-from ton_pipeline import (
-    PROJECT_ROOT,
-    RAW_COLUMNS,
-    as_int,
-    fetch_transactions,
-    flatten_transaction,
-    iter_windows,
-    parse_utc,
-    resolve_path,
-    write_raw_csv,
-)
+from ingestion import as_int, fetch_transactions, flatten_transaction, iter_windows, parse_utc, write_raw_csv
+from schema import PROJECT_ROOT, RAW_COLUMNS, resolve_path
 
 logger = logging.getLogger(__name__)
 

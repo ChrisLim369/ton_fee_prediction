@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from src.ton_pipeline import RAW_COLUMNS, build_hourly_features, normalize_bool, read_raw_transactions
+from src.features import build_hourly_features, normalize_bool, read_raw_transactions
+from src.schema import RAW_COLUMNS
 
 
 def raw_row(**overrides: object) -> dict[str, object]:

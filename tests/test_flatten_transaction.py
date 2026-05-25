@@ -1,7 +1,8 @@
 import json
 from pathlib import Path
 
-from src.ton_pipeline import RAW_COLUMNS, flatten_transaction
+from src.ingestion import flatten_transaction
+from src.schema import RAW_COLUMNS
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

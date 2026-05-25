@@ -9,7 +9,8 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import generate_forecast  # noqa: E402
-from src.ton_pipeline import MODEL_FEATURE_COLUMNS, recompute_hourly_derived_features
+from src.features import recompute_hourly_derived_features
+from src.schema import MODEL_FEATURE_COLUMNS
 
 
 def synthetic_features(rows: int = 96) -> pd.DataFrame:

@@ -14,7 +14,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ton_pipeline import MODEL_FEATURE_COLUMNS, predict_with_model, resolve_path
+from models.base import predict_with_model
+from schema import MODEL_FEATURE_COLUMNS, resolve_path
 
 
 FEE_DISTRIBUTION_COLUMNS = [

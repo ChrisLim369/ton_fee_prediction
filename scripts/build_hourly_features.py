@@ -12,7 +12,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from ton_pipeline import build_hourly_features, read_raw_transactions, write_data_dictionary, write_summary  # noqa: E402
+from features import build_hourly_features, read_raw_transactions, write_data_dictionary, write_summary  # noqa: E402
 
 
 def read_json_optional(path: Path) -> dict[str, object]:

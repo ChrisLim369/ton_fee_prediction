@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.ton_pipeline import MODEL_FEATURE_COLUMNS, prepare_model_matrix, split_model_data
+from src.features import prepare_model_matrix
+from src.models.base import split_model_data
+from src.schema import MODEL_FEATURE_COLUMNS
 
 
 def synthetic_hourly(days: int = 60) -> pd.DataFrame:
