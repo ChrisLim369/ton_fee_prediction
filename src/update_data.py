@@ -248,7 +248,7 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def update(args: argparse.Namespace) -> dict[str, Any]:
-    if args.stream:
+    if not getattr(args, "in_memory", False):
         return stream_update(args)
 
     raw_path = resolve_path(args.raw)
@@ -418,8 +418,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--stream",
         action="store_true",
-        help="Use temp-file streaming mode for large backfills instead of keeping all fetched rows in memory.",
+        help=argparse.SUPPRESS,
     )
+    parser.add_argument("--in-memory", action="store_true", help="Keep fetched rows in memory before writing raw CSV.")
     parser.add_argument("--verbose", action="store_true")
     return parser
 

@@ -77,6 +77,7 @@ def collect_recent_raw(args: argparse.Namespace, start_dt: datetime, end_dt: dat
         sleep=args.sleep,
         max_retries=args.max_retries,
         stream=args.stream,
+        in_memory=False,
         verbose=args.verbose,
     )
     return update_raw_data(update_args)
