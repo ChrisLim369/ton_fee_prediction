@@ -103,7 +103,7 @@ def synthetic_feature_row(
     return row
 
 
-def generate(args: argparse.Namespace) -> dict[str, object]:
+def generate(args: argparse.Namespace) -> dict[str, object] | pd.DataFrame:
     features_path = resolve_path(args.features)
     model_path = resolve_path(args.model)
     output_path = resolve_path(args.output)
@@ -119,6 +119,7 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
     history = df["avg_total_fee"].dropna().astype(float).tolist()
     if not history:
         raise ValueError("hourly feature dataset has no avg_total_fee values")
+    prediction_cap = max(history) * 3
 
     forecasts: list[dict[str, object]] = []
     for horizon in range(1, args.horizon_hours + 1):
@@ -132,6 +133,9 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
         feature_row["_fee_history"] = history.copy()
 
         prediction = predict_with_model(model, feature_row)
+        if not np.isfinite(prediction):
+            prediction = 0.0
+        prediction = min(max(0.0, prediction), prediction_cap)
         history.append(prediction)
 
         forecasts.append(
@@ -149,6 +153,9 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
     forecast_df = pd.DataFrame(forecasts)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     forecast_df.to_csv(output_path, index=False)
+
+    if getattr(args, "return_frame", False):
+        return forecast_df
 
     return {
         "output": str(output_path),
