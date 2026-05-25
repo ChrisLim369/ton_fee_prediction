@@ -239,6 +239,15 @@ def iter_windows(start_dt: datetime, end_dt: datetime, window_hours: int):
         current = window_end
 
 
+def hour_labels(start_dt: datetime, end_dt: datetime) -> list[str]:
+    labels = []
+    current = start_dt.replace(minute=0, second=0, microsecond=0)
+    while current < end_dt:
+        labels.append(current.isoformat().replace("+00:00", "Z"))
+        current += timedelta(hours=1)
+    return labels
+
+
 def write_rows(output_path: Path, rows: list[dict[str, Any]]) -> None:
     """Write raw rows to CSV with the requested stable column order."""
     with output_path.open("w", newline="", encoding="utf-8") as handle:
@@ -267,12 +276,13 @@ def collect(args: argparse.Namespace) -> dict[str, Any]:
     request_count = 0
     windows_processed = 0
     windows_with_limit_hits = 0
+    capped_hours: set[str] = set()
     session = requests.Session()
 
     for window_start, window_end in iter_windows(start_dt, end_dt, args.window_hours):
         windows_processed += 1
         for sort in sorts:
-            for page in range(args.max_pages_per_window):
+            for page in range(args.max_pages_cap):
                 params = {
                     "start_utime": int(window_start.timestamp()),
                     "end_utime": int(window_end.timestamp()),
@@ -299,6 +309,7 @@ def collect(args: argparse.Namespace) -> dict[str, Any]:
 
                 if len(transactions) == args.limit:
                     windows_with_limit_hits += 1
+                    capped_hours.update(hour_labels(window_start, window_end))
 
                 if args.verbose:
                     logger.info(
@@ -330,11 +341,13 @@ def collect(args: argparse.Namespace) -> dict[str, Any]:
         "window_hours": args.window_hours,
         "limit": args.limit,
         "max_pages_per_window": args.max_pages_per_window,
+        "max_pages_cap": args.max_pages_cap,
         "sort": args.sort,
         "workchain": args.workchain,
         "request_count": request_count,
         "windows_processed": windows_processed,
         "windows_with_limit_hits": windows_with_limit_hits,
+        "capped_hours_utc": sorted(capped_hours),
         "unique_transactions": len(rows),
         "output": str(output_path),
         "notes": (
@@ -359,6 +372,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--window-hours", type=int, default=1, help="Collection bucket size in hours.")
     parser.add_argument("--limit", type=int, default=1000, help="Rows per API request; TON Center maximum is 1000.")
     parser.add_argument("--max-pages-per-window", type=int, default=1, help="Increase for more complete hourly windows.")
+    parser.add_argument("--max-pages-cap", type=int, default=10, help="Hard cap for dynamic page expansion per window.")
     parser.add_argument("--sort", choices=["asc", "desc", "both"], default="asc")
     parser.add_argument(
         "--workchain",
@@ -385,6 +399,8 @@ def main() -> int:
         parser.error("--window-hours must be at least 1")
     if args.max_pages_per_window < 1:
         parser.error("--max-pages-per-window must be at least 1")
+    if args.max_pages_cap < args.max_pages_per_window:
+        parser.error("--max-pages-cap must be at least --max-pages-per-window")
     if args.workchain != "all":
         try:
             int(args.workchain)

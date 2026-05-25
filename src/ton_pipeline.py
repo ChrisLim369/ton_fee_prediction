@@ -58,6 +58,7 @@ RAW_COLUMNS = [
 HOURLY_COLUMNS = [
     "hour",
     "tx_count",
+    "is_capped_hour",
     "unique_accounts",
     "avg_total_fee",
     "median_total_fee",
@@ -273,6 +274,7 @@ RAW_DICTIONARY = {
 HOURLY_DICTIONARY = {
     "hour": "UTC hour bucket start timestamp.",
     "tx_count": "Number of raw transactions in the hourly bucket.",
+    "is_capped_hour": "1 when collection metadata indicates the hour hit a transaction page limit.",
     "unique_accounts": "Number of unique account addresses in the hourly bucket.",
     "avg_total_fee": "Mean total_fees per transaction in nanoton.",
     "median_total_fee": "Median total_fees per transaction in nanoton.",
@@ -540,7 +542,19 @@ def read_raw_transactions(path: Path) -> pd.DataFrame:
     return df
 
 
-def build_hourly_features(raw_df: pd.DataFrame) -> pd.DataFrame:
+def capped_hours_from_metadata(collection_metadata: dict[str, Any] | None) -> set[pd.Timestamp]:
+    if not collection_metadata:
+        return set()
+    return {
+        pd.Timestamp(hour).tz_convert("UTC")
+        for hour in collection_metadata.get("capped_hours_utc", [])
+    }
+
+
+def build_hourly_features(
+    raw_df: pd.DataFrame,
+    collection_metadata: dict[str, Any] | None = None,
+) -> pd.DataFrame:
     df = raw_df.copy()
     df["forward_fee_total"] = df["total_fwd_fees"]
 
@@ -572,6 +586,15 @@ def build_hourly_features(raw_df: pd.DataFrame) -> pd.DataFrame:
         avg_transaction_value=("transaction_value", "mean"),
         total_transaction_value=("transaction_value", "sum"),
     ).reset_index()
+    capped_hours = capped_hours_from_metadata(collection_metadata)
+    if capped_hours:
+        hourly["is_capped_hour"] = hourly["hour"].isin(capped_hours).astype(int)
+    else:
+        page_limit = (collection_metadata or {}).get("limit")
+        if page_limit:
+            hourly["is_capped_hour"] = (hourly["tx_count"] >= int(page_limit)).astype(int)
+        else:
+            hourly["is_capped_hour"] = 0
 
     return recompute_hourly_derived_features(hourly)
 

@@ -73,6 +73,15 @@ def default_end_datetime(include_partial_hour: bool) -> datetime:
     return now.replace(minute=0, second=0)
 
 
+def hour_labels(start_dt: datetime, end_dt: datetime) -> list[str]:
+    labels = []
+    current = start_dt.replace(minute=0, second=0, microsecond=0)
+    while current < end_dt:
+        labels.append(current.isoformat().replace("+00:00", "Z"))
+        current += timedelta(hours=1)
+    return labels
+
+
 def update_state_from_row(state: dict[str, Any], row: dict[str, Any]) -> None:
     now_value = as_int(row.get("now"), None)
     lt_value = as_int(row.get("lt"), None)
@@ -153,56 +162,60 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
             request_count = 0
             windows_processed = 0
             windows_with_limit_hits = 0
+            capped_hours: set[str] = set()
+            sorts = ["asc", "desc"] if args.sort == "both" else [args.sort]
 
             for window_start, window_end in iter_windows(start_dt, end_dt, args.window_hours):
                 windows_processed += 1
-                for page in range(args.max_pages_per_window):
-                    params = {
-                        "start_utime": int(window_start.timestamp()),
-                        "end_utime": int(window_end.timestamp()),
-                        "limit": args.limit,
-                        "offset": page * args.limit,
-                        "sort": args.sort,
-                    }
-                    if args.workchain != "all":
-                        params["workchain"] = int(args.workchain)
-                    if use_start_lt:
-                        params["start_lt"] = int(before_state["latest_lt"]) + 1
+                for sort in sorts:
+                    for page in range(args.max_pages_cap):
+                        params = {
+                            "start_utime": int(window_start.timestamp()),
+                            "end_utime": int(window_end.timestamp()),
+                            "limit": args.limit,
+                            "offset": page * args.limit,
+                            "sort": sort,
+                        }
+                        if args.workchain != "all":
+                            params["workchain"] = int(args.workchain)
+                        if use_start_lt:
+                            params["start_lt"] = int(before_state["latest_lt"]) + 1
 
-                    transactions = fetch_transactions(
-                        session=session,
-                        base_url=args.base_url,
-                        api_key=api_key,
-                        params=params,
-                        max_retries=args.max_retries,
-                    )
-                    request_count += 1
-                    fetched_rows += len(transactions)
-
-                    for tx in transactions:
-                        row = flatten_transaction(tx)
-                        key = (str(row.get("hash") or ""), str(row.get("lt") or ""))
-                        if not key[0] or key in existing_keys:
-                            continue
-                        existing_keys.add(key)
-                        writer.writerow({column: row.get(column) for column in RAW_COLUMNS})
-                        new_rows_added += 1
-                        update_state_from_row(after_state, row)
-
-                    output_handle.flush()
-
-                    if len(transactions) == args.limit:
-                        windows_with_limit_hits += 1
-
-                    if args.verbose:
-                        logger.info(
-                            f"{window_start.isoformat()} page={page + 1} "
-                            f"fetched={len(transactions)} new_rows={new_rows_added}"
+                        transactions = fetch_transactions(
+                            session=session,
+                            base_url=args.base_url,
+                            api_key=api_key,
+                            params=params,
+                            max_retries=args.max_retries,
                         )
+                        request_count += 1
+                        fetched_rows += len(transactions)
 
-                    if len(transactions) < args.limit:
-                        break
-                    time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
+                        for tx in transactions:
+                            row = flatten_transaction(tx)
+                            key = (str(row.get("hash") or ""), str(row.get("lt") or ""))
+                            if not key[0] or key in existing_keys:
+                                continue
+                            existing_keys.add(key)
+                            writer.writerow({column: row.get(column) for column in RAW_COLUMNS})
+                            new_rows_added += 1
+                            update_state_from_row(after_state, row)
+
+                        output_handle.flush()
+
+                        if len(transactions) == args.limit:
+                            windows_with_limit_hits += 1
+                            capped_hours.update(hour_labels(window_start, window_end))
+
+                        if args.verbose:
+                            logger.info(
+                                f"{window_start.isoformat()} sort={sort} page={page + 1} "
+                                f"fetched={len(transactions)} new_rows={new_rows_added}"
+                            )
+
+                        if len(transactions) < args.limit:
+                            break
+                        time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
                 time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
 
         temp_path.replace(raw_path)
@@ -233,9 +246,11 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
             "windows_with_limit_hits": windows_with_limit_hits,
             "limit": args.limit,
             "max_pages_per_window": args.max_pages_per_window,
+            "max_pages_cap": args.max_pages_cap,
             "window_hours": args.window_hours,
             "sort": args.sort,
             "workchain": args.workchain,
+            "capped_hours_utc": sorted(capped_hours),
             "note": (
                 "Streaming mode rewrites a de-duplicated raw CSV through a temp file. "
                 "If windows_with_limit_hits is greater than zero, increase "
@@ -307,45 +322,49 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
     request_count = 0
     windows_processed = 0
     windows_with_limit_hits = 0
+    capped_hours: set[str] = set()
+    sorts = ["asc", "desc"] if args.sort == "both" else [args.sort]
 
     try:
         for window_start, window_end in iter_windows(start_dt, end_dt, args.window_hours):
             windows_processed += 1
-            for page in range(args.max_pages_per_window):
-                params = {
-                    "start_utime": int(window_start.timestamp()),
-                    "end_utime": int(window_end.timestamp()),
-                    "limit": args.limit,
-                    "offset": page * args.limit,
-                    "sort": args.sort,
-                }
-                if args.workchain != "all":
-                    params["workchain"] = int(args.workchain)
-                if use_start_lt:
-                    params["start_lt"] = int(before_state["latest_lt"]) + 1
+            for sort in sorts:
+                for page in range(args.max_pages_cap):
+                    params = {
+                        "start_utime": int(window_start.timestamp()),
+                        "end_utime": int(window_end.timestamp()),
+                        "limit": args.limit,
+                        "offset": page * args.limit,
+                        "sort": sort,
+                    }
+                    if args.workchain != "all":
+                        params["workchain"] = int(args.workchain)
+                    if use_start_lt:
+                        params["start_lt"] = int(before_state["latest_lt"]) + 1
 
-                transactions = fetch_transactions(
-                    session=session,
-                    base_url=args.base_url,
-                    api_key=api_key,
-                    params=params,
-                    max_retries=args.max_retries,
-                )
-                request_count += 1
-                fetched_rows.extend(flatten_transaction(tx) for tx in transactions)
-
-                if len(transactions) == args.limit:
-                    windows_with_limit_hits += 1
-
-                if args.verbose:
-                    logger.info(
-                        f"{window_start.isoformat()} page={page + 1} "
-                        f"fetched={len(transactions)} total_fetched={len(fetched_rows)}"
+                    transactions = fetch_transactions(
+                        session=session,
+                        base_url=args.base_url,
+                        api_key=api_key,
+                        params=params,
+                        max_retries=args.max_retries,
                     )
+                    request_count += 1
+                    fetched_rows.extend(flatten_transaction(tx) for tx in transactions)
 
-                if len(transactions) < args.limit:
-                    break
-                time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
+                    if len(transactions) == args.limit:
+                        windows_with_limit_hits += 1
+                        capped_hours.update(hour_labels(window_start, window_end))
+
+                    if args.verbose:
+                        logger.info(
+                            f"{window_start.isoformat()} sort={sort} page={page + 1} "
+                            f"fetched={len(transactions)} total_fetched={len(fetched_rows)}"
+                        )
+
+                    if len(transactions) < args.limit:
+                        break
+                    time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
             time.sleep(sleep_seconds * random.uniform(0.9, 1.1))
 
         fetched = pd.DataFrame(fetched_rows, columns=RAW_COLUMNS)
@@ -388,9 +407,11 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
             "windows_with_limit_hits": windows_with_limit_hits,
             "limit": args.limit,
             "max_pages_per_window": args.max_pages_per_window,
+            "max_pages_cap": args.max_pages_cap,
             "window_hours": args.window_hours,
             "sort": args.sort,
             "workchain": args.workchain,
+            "capped_hours_utc": sorted(capped_hours),
             "note": (
                 "If windows_with_limit_hits is greater than zero, the update may be a "
                 "sample of a high-volume hour. Increase --max-pages-per-window and use "
@@ -434,7 +455,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--window-hours", type=int, default=1)
     parser.add_argument("--limit", type=int, default=1000)
     parser.add_argument("--max-pages-per-window", type=int, default=1)
-    parser.add_argument("--sort", choices=["asc", "desc"], default="asc")
+    parser.add_argument("--max-pages-cap", type=int, default=10)
+    parser.add_argument("--sort", choices=["asc", "desc", "both"], default="asc")
     parser.add_argument("--workchain", default="0", help="Integer workchain or 'all'.")
     parser.add_argument("--sleep", type=float, default=None)
     parser.add_argument("--max-retries", type=int, default=5)
@@ -461,6 +483,8 @@ def main() -> int:
         parser.error("--window-hours must be at least 1")
     if args.max_pages_per_window < 1:
         parser.error("--max-pages-per-window must be at least 1")
+    if args.max_pages_cap < args.max_pages_per_window:
+        parser.error("--max-pages-cap must be at least --max-pages-per-window")
     if args.workchain != "all":
         try:
             int(args.workchain)

@@ -74,6 +74,7 @@ def collect_recent_raw(args: argparse.Namespace, start_dt: datetime, end_dt: dat
         window_hours=args.window_hours,
         limit=args.limit,
         max_pages_per_window=args.max_pages_per_window,
+        max_pages_cap=args.max_pages_cap,
         sort=args.sort,
         workchain=args.workchain,
         sleep=args.sleep,
@@ -85,12 +86,12 @@ def collect_recent_raw(args: argparse.Namespace, start_dt: datetime, end_dt: dat
     return update_raw_data(update_args)
 
 
-def merge_hourly_features(args: argparse.Namespace) -> dict[str, Any]:
+def merge_hourly_features(args: argparse.Namespace, collection_status: dict[str, Any]) -> dict[str, Any]:
     recent_raw_path = resolve_path(args.recent_raw)
     hourly_path = resolve_path(args.hourly_features)
 
     raw_df = read_raw_transactions(recent_raw_path)
-    recent_hourly = build_hourly_features(raw_df)
+    recent_hourly = build_hourly_features(raw_df, collection_status)
     if recent_hourly.empty:
         raise ValueError("Recent transaction collection produced no hourly feature rows.")
 
@@ -177,7 +178,7 @@ def refresh(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError("Recent refresh start time must be before end time.")
 
     collection_status = collect_recent_raw(args, start_dt, end_dt)
-    merge_status = merge_hourly_features(args)
+    merge_status = merge_hourly_features(args, collection_status)
     forecast_status = generate_forecast(
         Namespace(
             features=args.hourly_features,
@@ -225,7 +226,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--window-hours", type=int, default=1)
     parser.add_argument("--limit", type=int, default=1000)
     parser.add_argument("--max-pages-per-window", type=int, default=1)
-    parser.add_argument("--sort", choices=["asc", "desc"], default="asc")
+    parser.add_argument("--max-pages-cap", type=int, default=10)
+    parser.add_argument("--sort", choices=["asc", "desc", "both"], default="asc")
     parser.add_argument("--workchain", default="0")
     parser.add_argument("--sleep", type=float, default=None)
     parser.add_argument("--max-retries", type=int, default=5)
@@ -252,6 +254,8 @@ def main() -> int:
         level=logging.INFO if args.verbose else logging.WARNING,
         format="%(levelname)s:%(name)s:%(message)s",
     )
+    if args.max_pages_cap < args.max_pages_per_window:
+        raise ValueError("--max-pages-cap must be at least --max-pages-per-window")
     result = refresh(args)
     print(json.dumps(result, indent=2))
     return 0

@@ -15,6 +15,12 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from ton_pipeline import build_hourly_features, read_raw_transactions, write_data_dictionary, write_summary  # noqa: E402
 
 
+def read_json_optional(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def build(args: argparse.Namespace) -> None:
     raw_path = Path(args.raw)
     hourly_path = Path(args.output)
@@ -23,7 +29,8 @@ def build(args: argparse.Namespace) -> None:
     metadata_path = Path(args.metadata) if args.metadata else raw_path.with_name("collection_metadata.json")
 
     raw_df = read_raw_transactions(raw_path)
-    hourly_df = build_hourly_features(raw_df)
+    collection_metadata = read_json_optional(metadata_path)
+    hourly_df = build_hourly_features(raw_df, collection_metadata)
 
     hourly_path.parent.mkdir(parents=True, exist_ok=True)
     hourly_df.to_csv(hourly_path, index=False)
