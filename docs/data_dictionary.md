@@ -41,6 +41,7 @@ All fee and value fields are stored in nanoton unless noted otherwise.
 
 - `hour`: UTC hour bucket start timestamp.
 - `tx_count`: Number of raw transactions in the hourly bucket.
+- `is_capped_hour`: 1 when collection metadata indicates the hour hit a transaction page limit.
 - `unique_accounts`: Number of unique account addresses in the hourly bucket.
 - `avg_total_fee`: Mean total_fees per transaction in nanoton.
 - `median_total_fee`: Median total_fees per transaction in nanoton.
@@ -53,7 +54,7 @@ All fee and value fields are stored in nanoton unless noted otherwise.
 - `avg_compute_fee`: Mean compute_gas_fees in nanoton.
 - `avg_storage_fee`: Mean storage_fees_collected in nanoton.
 - `avg_action_fee`: Mean total_action_fees in nanoton.
-- `avg_forward_fee`: Mean of total_fwd_fees plus outbound forward fee sum in nanoton.
+- `avg_forward_fee`: Mean action-phase total_fwd_fees in nanoton.
 - `avg_import_fee`: Mean inbound import fee in nanoton.
 - `avg_vm_steps`: Mean VM steps.
 - `avg_msgs_created`: Mean messages created.
@@ -68,11 +69,11 @@ All fee and value fields are stored in nanoton unless noted otherwise.
 - `hour_of_day`: UTC hour number, 0-23.
 - `day_of_week`: UTC day of week, Monday=0.
 - `is_weekend`: 1 for Saturday/Sunday UTC, otherwise 0.
-- `fee_lag_1h`: avg_total_fee shifted back 1 hourly row.
-- `fee_lag_3h`: avg_total_fee shifted back 3 hourly rows.
-- `fee_lag_6h`: avg_total_fee shifted back 6 hourly rows.
-- `fee_lag_12h`: avg_total_fee shifted back 12 hourly rows.
-- `fee_lag_24h`: avg_total_fee shifted back 24 hourly rows.
+- `fee_lag_1h`: avg_total_fee from exactly 1 hour earlier.
+- `fee_lag_3h`: avg_total_fee from exactly 3 hours earlier.
+- `fee_lag_6h`: avg_total_fee from exactly 6 hours earlier.
+- `fee_lag_12h`: avg_total_fee from exactly 12 hours earlier.
+- `fee_lag_24h`: avg_total_fee from exactly 24 hours earlier.
 - `rolling_avg_fee_3h`: Prior 3-hour rolling mean of avg_total_fee.
 - `rolling_avg_fee_6h`: Prior 6-hour rolling mean of avg_total_fee.
 - `rolling_avg_fee_12h`: Prior 12-hour rolling mean of avg_total_fee.
@@ -96,7 +97,7 @@ All fee and value fields are stored in nanoton unless noted otherwise.
 - `p90_fee_change_3h`: Current p90_total_fee minus p90_total_fee from 3 hourly rows earlier.
 - `p90_fee_change_6h`: Current p90_total_fee minus p90_total_fee from 6 hourly rows earlier.
 - `p90_fee_change_24h`: Current p90_total_fee minus p90_total_fee from 24 hourly rows earlier.
-- `same_hour_prev_day_fee`: avg_total_fee from the same UTC hour on the previous day.
+- `same_hour_prev_day_fee`: avg_total_fee at the timestamp exactly 24 hours earlier.
 - `hour_sin`: Sine encoding of UTC hour of day.
 - `hour_cos`: Cosine encoding of UTC hour of day.
 - `day_sin`: Sine encoding of UTC day of week.

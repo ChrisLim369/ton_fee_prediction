@@ -20,14 +20,14 @@
 - endpoint: https://toncenter.com/api/v3/transactions
 - window_hours: 1
 - limit: 1000
-- max_pages_per_window: 5
+- max_pages_per_window: 1
 - sort: asc
 - workchain: 0
-- request_count: 120
-- windows_processed: 24
-- windows_with_limit_hits: 120
-- api_key_used: True
-- new_rows_added: 117600
+- request_count: 11
+- windows_processed: 11
+- windows_with_limit_hits: 11
+- api_key_used: False
+- new_rows_added: 10936
 - status: success
 - Limitation: at least one hourly window reached the request limit, so this run is a sampled transaction-level dataset rather than a complete chain-wide export for every hour.
 

@@ -1,9 +1,9 @@
 {
   "model": "models/best_model.json",
-  "best_model_name": "ridge_alpha_100",
-  "best_r2": 0.10761057300778831,
-  "best_mae": 637228.751290392,
-  "best_rmse": 700027.5869924865,
-  "train_rows": 750,
-  "test_rows": 188
+  "best_model_name": "gradient_boosted_stumps_200_lr_0_03",
+  "best_r2": 0.09864192746421929,
+  "best_mae": 159700.65076625563,
+  "best_rmse": 214550.78464008437,
+  "train_rows": 580,
+  "test_rows": 145
 }
