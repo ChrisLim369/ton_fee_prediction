@@ -1,0 +1,15 @@
+line-length = 120
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "I"]
+
+[lint.per-file-ignores]
+"scripts/build_hourly_features.py" = ["E501", "I001"]
+"scripts/collect_transactions.py" = ["E501", "I001"]
+"scripts/generate_charts.py" = ["E501", "F841", "I001"]
+"src/generate_forecast.py" = ["F401", "I001"]
+"src/refresh_forecast_outputs.py" = ["E501"]
+"src/telegram_bot.py" = ["E501", "I001"]
+"src/ton_pipeline.py" = ["E501", "I001"]
+"src/train_model.py" = ["E501"]
