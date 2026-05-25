@@ -114,7 +114,6 @@ HOURLY_COLUMNS = [
     "p90_fee_change_3h",
     "p90_fee_change_6h",
     "p90_fee_change_24h",
-    "same_hour_prev_day_fee",
     "hour_sin",
     "hour_cos",
     "day_sin",
@@ -179,7 +178,6 @@ MODEL_FEATURE_COLUMNS = [
     "p90_fee_change_3h",
     "p90_fee_change_6h",
     "p90_fee_change_24h",
-    "same_hour_prev_day_fee",
     "hour_sin",
     "hour_cos",
     "day_sin",
@@ -330,7 +328,6 @@ HOURLY_DICTIONARY = {
     "p90_fee_change_3h": "Current p90_total_fee minus p90_total_fee from 3 hourly rows earlier.",
     "p90_fee_change_6h": "Current p90_total_fee minus p90_total_fee from 6 hourly rows earlier.",
     "p90_fee_change_24h": "Current p90_total_fee minus p90_total_fee from 24 hourly rows earlier.",
-    "same_hour_prev_day_fee": "avg_total_fee at the timestamp exactly 24 hours earlier.",
     "hour_sin": "Sine encoding of UTC hour of day.",
     "hour_cos": "Cosine encoding of UTC hour of day.",
     "day_sin": "Sine encoding of UTC day of week.",
@@ -639,7 +636,6 @@ def recompute_hourly_derived_features(hourly_df: pd.DataFrame) -> pd.DataFrame:
         hourly[f"gas_used_change_{lag}h"] = hourly["avg_gas_used"] - hourly["avg_gas_used"].shift(lag)
         hourly[f"p90_fee_change_{lag}h"] = hourly["p90_total_fee"] - hourly["p90_total_fee"].shift(lag)
 
-    hourly["same_hour_prev_day_fee"] = hourly["avg_total_fee"].shift(24)
     hourly["hour_sin"] = np.sin(2 * np.pi * hourly["hour_of_day"] / 24)
     hourly["hour_cos"] = np.cos(2 * np.pi * hourly["hour_of_day"] / 24)
     hourly["day_sin"] = np.sin(2 * np.pi * hourly["day_of_week"] / 7)

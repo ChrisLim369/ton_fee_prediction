@@ -95,7 +95,6 @@ def synthetic_feature_row(
         row[f"fee_change_{lag}h"] = last_fee - history_value(history, lag)
     for lag in [1, 3, 6, 24]:
         row[f"p90_fee_change_{lag}h"] = last_fee - history_value(history, lag)
-    row["same_hour_prev_day_fee"] = history_value(history, 24)
     row["hour_sin"] = float(np.sin(2 * np.pi * feature_hour.hour / 24))
     row["hour_cos"] = float(np.cos(2 * np.pi * feature_hour.hour / 24))
     row["day_sin"] = float(np.sin(2 * np.pi * feature_hour.dayofweek / 7))

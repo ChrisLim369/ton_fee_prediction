@@ -49,7 +49,6 @@ def test_recompute_hourly_features_has_expected_offsets() -> None:
     assert result.loc[10, "rolling_avg_fee_3h"] == 9.0
     assert result.loc[10, "fee_change_1h"] == 1.0
     assert result.loc[10, "target_next_hour_avg_fee"] == 12.0
-    assert result.loc[24, "same_hour_prev_day_fee"] == 1.0
 
 
 def test_recompute_hourly_features_uses_time_index_across_gaps() -> None:
@@ -66,8 +65,5 @@ def test_recompute_hourly_features_uses_time_index_across_gaps() -> None:
     assert "2024-01-02T00:00:00Z" not in result_hours
     assert "2024-01-02T06:00:00Z" not in result_hours
     assert after_gap["fee_lag_24h"] == 8.0
-    assert after_gap["same_hour_prev_day_fee"] == after_gap["fee_lag_24h"]
     assert np.isnan(points_into_gap["fee_lag_24h"])
-    assert np.isnan(points_into_gap["same_hour_prev_day_fee"])
     assert later["fee_lag_24h"] == 11.0
-    assert later["same_hour_prev_day_fee"] == later["fee_lag_24h"]
