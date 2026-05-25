@@ -125,6 +125,7 @@ def update_metadata(
     previous = read_json_optional(last_updated_path) or read_json_optional(metadata_path)
 
     previous_full_rows = previous.get("final_rows")
+    current_final_rows = collection_status.get("final_rows")
     generated_at = None
     predictions_path = resolve_path(args.predictions)
     if predictions_path.exists():
@@ -150,7 +151,7 @@ def update_metadata(
         "forecast_start": forecast_status.get("forecast_start"),
         "forecast_end": forecast_status.get("forecast_end"),
         "previous_known_full_raw_rows": previous_full_rows,
-        "final_rows": previous_full_rows or collection_status.get("final_rows"),
+        "final_rows": current_final_rows or previous_full_rows,
         "raw_rows_note": (
             "raw_transactions.csv is not committed to Git. In GitHub Actions-only mode, "
             "the ignored raw CSV is restored from and saved back to the GitHub Actions cache "
@@ -162,6 +163,15 @@ def update_metadata(
             "Transaction count features remain sampled when TON Center page limits are reached."
         ),
     }
+    if previous_full_rows is not None and current_final_rows is not None:
+        previous_rows = int(previous_full_rows)
+        current_rows = int(current_final_rows)
+        if current_rows < previous_rows * 0.9:
+            payload["status"] = "degraded"
+            payload["degradation_reason"] = (
+                f"raw row count regressed from {previous_rows} to {current_rows}; "
+                "refusing to publish a potentially truncated dataset"
+            )
 
     write_json(last_updated_path, payload)
     write_json(metadata_path, payload)

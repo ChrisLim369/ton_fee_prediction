@@ -42,6 +42,37 @@ jobs:
           restore-keys: |
             ton-raw-transactions-
 
+      - name: Validate raw transaction cache
+        run: |
+          python - <<'PY'
+          import csv
+          import os
+          import time
+          from pathlib import Path
+
+          path = Path("raw_transactions.csv")
+          valid = False
+          if path.exists():
+              with path.open(newline="", encoding="utf-8") as handle:
+                  reader = csv.DictReader(handle)
+                  first_now = None
+                  last_now = None
+                  rows = 0
+                  for row in reader:
+                      rows += 1
+                      now = int(float(row.get("now") or 0))
+                      first_now = now if first_now is None else first_now
+                      last_now = now
+              earliest = int(time.time()) - 90 * 24 * 60 * 60
+              latest = int(time.time()) + 24 * 60 * 60
+              valid = rows >= 100000 and first_now is not None and earliest <= first_now <= latest and earliest <= last_now <= latest
+
+          if not valid:
+              path.unlink(missing_ok=True)
+              with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+                  env.write("RAW_CACHE_VALID=false\n")
+          PY
+
       - name: Refresh raw data, hourly features, and forecast
         env:
           TONCENTER_API_KEY: ${{ secrets.TONCENTER_API_KEY }}
@@ -66,6 +97,12 @@ jobs:
 
       - name: Regenerate charts
         run: python scripts/generate_charts.py
+
+      - name: Fail on degraded refresh
+        run: |
+          if jq -e '.status == "degraded"' last_updated.json; then
+            exit 1
+          fi
 
       - name: Commit refreshed lightweight outputs
         id: commit
