@@ -2,12 +2,12 @@
 
 ## Summary
 
-- Best model: `gradient_boosted_stumps_200_lr_0_03`
+- Best model: `rolling_mean_6h`
 - Selected by: rolling backtest mean R2 (tie-break median RMSE)
-- Best model R2: 0.098642
-- Best model MAE: 159700.651 nanoton
-- Best model RMSE: 214550.785 nanoton
-- Best model directional accuracy: 0.703
+- Best model R2: 0.135928
+- Best model MAE: 45741.041 nanoton
+- Best model RMSE: 67061.841 nanoton
+- Best model directional accuracy: 0.625
 
 ## Interpretation
 
@@ -18,20 +18,20 @@ The next priorities are more uniform historical backfill, uncertainty ranges, an
 ## Model Comparison
 
 ```text
-          mae          rmse        r2     mape  directional_accuracy                               model_name                        model_type target_transform  alpha  train_rows  test_rows  max_depth  n_estimators  learning_rate  min_samples_leaf
-159700.650766 214550.784640  0.098642 6.437749              0.703448      gradient_boosted_stumps_200_lr_0_03 gradient_boosted_regression_trees             none    0.0         580        145        1.0         200.0           0.03              20.0
-160404.884066 215313.918451  0.092218 6.462835              0.696552      gradient_boosted_stumps_100_lr_0_05 gradient_boosted_regression_trees             none    0.0         580        145        1.0         100.0           0.05              20.0
-164093.344725 219298.857285  0.058306 6.592632              0.675862       gradient_boosted_stumps_50_lr_0_05 gradient_boosted_regression_trees             none    0.0         580        145        1.0          50.0           0.05              20.0
-166579.978407 220840.042193  0.045023 6.772587              0.710345 gradient_boosted_trees_depth_3_50_lr_0_1 gradient_boosted_regression_trees             none    0.0         580        145        3.0          50.0           0.10              20.0
-163825.738990 220923.292541  0.044303 6.605699              0.724138                          ridge_alpha_100                  ridge_regression             none  100.0         580        145        NaN           NaN            NaN               NaN
-164807.935569 222533.785687  0.030319 6.621270              0.710345             ridge_alpha_100_log1p_target                  ridge_regression            log1p  100.0         580        145        NaN           NaN            NaN               NaN
-164380.640455 222991.066384  0.026329 6.629881              0.717241                           ridge_alpha_10                  ridge_regression             none   10.0         580        145        NaN           NaN            NaN               NaN
-165138.199312 224299.983319  0.014865 6.635433              0.717241              ridge_alpha_10_log1p_target                  ridge_regression            log1p   10.0         580        145        NaN           NaN            NaN               NaN
-165910.422865 225126.384093  0.007593 6.696389              0.724138                            ridge_alpha_1                  ridge_regression             none    1.0         580        145        NaN           NaN            NaN               NaN
-166435.738297 226231.039464 -0.002170 6.692755              0.703448               ridge_alpha_1_log1p_target                  ridge_regression            log1p    1.0         580        145        NaN           NaN            NaN               NaN
-176653.563663 226594.939190 -0.005397 7.224391              0.710345                          rolling_mean_6h                             naive             none    0.0         580        145        NaN           NaN            NaN               NaN
-202552.248210 271299.792733 -0.441239 8.186842              0.655172                       seasonal_naive_24h                             naive             none    0.0         580        145        NaN           NaN            NaN               NaN
-209258.184729 284507.694815 -0.584985 8.593507              0.000000                              persistence                             naive             none    0.0         580        145        NaN           NaN            NaN               NaN
+          mae          rmse        r2      mape  directional_accuracy                               model_name                        model_type target_transform  alpha  train_rows  test_rows  max_depth  n_estimators  learning_rate  min_samples_leaf
+ 44335.780572  65017.690282  0.187802  8.862022              0.000000                              persistence                             naive             none    0.0        1119        280        NaN           NaN            NaN               NaN
+ 45741.040857  67061.840924  0.135928  9.152077              0.625000                          rolling_mean_6h                             naive             none    0.0        1119        280        NaN           NaN            NaN               NaN
+ 62641.236394  88070.714093 -0.490260 12.418918              0.592857                       seasonal_naive_24h                             naive             none    0.0        1119        280        NaN           NaN            NaN               NaN
+ 70405.747378  96358.569918 -0.783938 14.759164              0.603571              ridge_alpha_10_log1p_target                  ridge_regression            log1p   10.0        1119        280        NaN           NaN            NaN               NaN
+ 69724.683138  97999.202920 -0.845203 14.490853              0.625000               ridge_alpha_1_log1p_target                  ridge_regression            log1p    1.0        1119        280        NaN           NaN            NaN               NaN
+ 81269.804832 106006.328345 -1.159049 17.474398              0.557143             ridge_alpha_100_log1p_target                  ridge_regression            log1p  100.0        1119        280        NaN           NaN            NaN               NaN
+ 90805.657328 108032.717243 -1.242382 19.245136              0.503571      gradient_boosted_stumps_200_lr_0_03 gradient_boosted_regression_trees             none    0.0        1119        280        1.0         200.0           0.03              20.0
+ 87641.793552 110309.107765 -1.337877 18.407114              0.585714 gradient_boosted_trees_depth_3_50_lr_0_1 gradient_boosted_regression_trees             none    0.0        1119        280        3.0          50.0           0.10              20.0
+ 97448.332370 112927.402799 -1.450178 20.700792              0.489286      gradient_boosted_stumps_100_lr_0_05 gradient_boosted_regression_trees             none    0.0        1119        280        1.0         100.0           0.05              20.0
+ 85144.901614 118737.346295 -1.708780 17.817999              0.567857                           ridge_alpha_10                  ridge_regression             none   10.0        1119        280        NaN           NaN            NaN               NaN
+ 85746.491359 121882.153165 -1.854166 17.805679              0.614286                            ridge_alpha_1                  ridge_regression             none    1.0        1119        280        NaN           NaN            NaN               NaN
+102009.203225 134903.564546 -2.496599 21.998977              0.528571                          ridge_alpha_100                  ridge_regression             none  100.0        1119        280        NaN           NaN            NaN               NaN
+190984.332174 200513.245510 -6.724762 40.410202              0.450000       gradient_boosted_stumps_50_lr_0_05 gradient_boosted_regression_trees             none    0.0        1119        280        1.0          50.0           0.05              20.0
 ```
 
 ## Rolling Backtest
@@ -39,17 +39,17 @@ The next priorities are more uniform historical backfill, uncertainty ranges, an
 Expanding-window backtest using recent 24-hour test folds. Higher mean R2 is better; lower mean MAE/RMSE is better.
 
 ```text
-                              model_name                        model_type target_transform   mean_r2  median_r2   std_r2    min_r2    max_r2      mean_mae    median_mae      std_mae     mean_rmse   median_rmse     std_rmse  mean_mape  median_mape  mean_directional_accuracy  median_directional_accuracy  folds  r2_win_count
-     gradient_boosted_stumps_200_lr_0_03 gradient_boosted_regression_trees             none  0.015100   0.035543 0.108036 -0.133905  0.136730 155384.393468 137118.423326 38183.603408 202800.668305 178074.398499 52027.376962   6.312172     5.767891                   0.760417                     0.750000      8             2
-     gradient_boosted_stumps_100_lr_0_05 gradient_boosted_regression_trees             none  0.011551   0.032758 0.104966 -0.141904  0.122647 155938.554244 136985.910124 38323.716193 203258.630595 177759.710052 52421.031801   6.328955     5.806811                   0.760417                     0.791667      8             1
-gradient_boosted_trees_depth_3_50_lr_0_1 gradient_boosted_regression_trees             none -0.033355  -0.067952 0.122086 -0.187591  0.140626 161337.688698 136989.483022 40414.201152 207390.834341 181026.094562 51911.759921   6.601134     5.758501                   0.750000                     0.750000      8             2
-      gradient_boosted_stumps_50_lr_0_05 gradient_boosted_regression_trees             none -0.035093  -0.024065 0.101999 -0.190631  0.073499 160509.724316 139929.221145 38770.868675 208151.508871 180225.349645 54012.448811   6.492816     6.019039                   0.744792                     0.750000      8             0
-                         ridge_alpha_100                  ridge_regression             none -0.045760  -0.057502 0.160603 -0.232621  0.176092 161675.134971 139962.840750 39459.113288 208304.366725 178218.178996 53093.442164   6.592602     5.874505                   0.750000                     0.729167      8             0
-            ridge_alpha_100_log1p_target                  ridge_regression            log1p -0.056738  -0.081004 0.176363 -0.244685  0.177590 162254.375092 142079.335274 40216.595107 209279.676049 180496.563537 53688.390511   6.588918     5.870154                   0.755208                     0.770833      8             2
-                          ridge_alpha_10                  ridge_regression             none -0.059141  -0.083985 0.156594 -0.264990  0.149232 163085.821981 141602.565634 40446.035218 209806.835599 181140.625365 53859.101820   6.660660     5.889227                   0.755208                     0.729167      8             0
-             ridge_alpha_10_log1p_target                  ridge_regression            log1p -0.067114  -0.087375 0.174759 -0.272151  0.155177 163050.424155 143862.981359 40873.711089 210400.874818 183059.576295 54130.576653   6.631448     5.945237                   0.750000                     0.729167      8             0
-                           ridge_alpha_1                  ridge_regression             none -0.068631  -0.084615 0.154152 -0.277745  0.138228 164328.328178 143067.680658 40753.592069 210876.979368 183160.888263 54449.136635   6.716646     5.941222                   0.755208                     0.750000      8             0
-              ridge_alpha_1_log1p_target                  ridge_regression            log1p -0.074539  -0.093131 0.174496 -0.283146  0.140843 163923.046911 145686.794350 41034.233988 211218.907326 185320.496193 54524.921652   6.673231     6.017104                   0.744792                     0.729167      8             0
-                         rolling_mean_6h                             naive             none -0.162299  -0.090761 0.213654 -0.503229  0.118224 174784.046509 154859.861096 45050.707170 218487.094931 195257.928987 52074.760863   7.187838     6.540500                   0.708333                     0.687500      8             1
-                             persistence                             naive             none -0.779450  -0.632516 0.433230 -1.430868 -0.366654 209762.436341 188279.200504 61948.419686 272105.247088 238593.586676 81178.176910   8.627354     7.886207                   0.000000                     0.000000      8             0
+                              model_name                        model_type target_transform   mean_r2  median_r2   std_r2     min_r2    max_r2     mean_mae   median_mae      std_mae     mean_rmse  median_rmse     std_rmse  mean_mape  median_mape  mean_directional_accuracy  median_directional_accuracy  folds  r2_win_count
+                         rolling_mean_6h                             naive             none -0.236161  -0.284467 0.200723  -0.478079  0.094668 46730.327487 37165.762413 28647.632665  61974.381064 49229.786985 36836.894878   8.895618     6.889680                   0.656250                     0.666667      8             2
+gradient_boosted_trees_depth_3_50_lr_0_1 gradient_boosted_regression_trees             none -0.256217  -0.246952 0.294357  -0.673482  0.105732 47920.513046 38101.936922 26870.765613  63330.729894 47715.008737 42714.677355   9.350303     8.199096                   0.640625                     0.645833      8             1
+              ridge_alpha_1_log1p_target                  ridge_regression            log1p -0.534806  -0.565968 0.518746  -1.201731  0.128848 49380.248338 41616.479996 19981.956395  64386.576058 53275.577224 29109.541791   9.357413     8.455468                   0.666667                     0.645833      8             0
+                             persistence                             naive             none -0.548658  -0.447871 0.632632  -1.822416  0.194235 46294.379705 40344.470267 16675.978458  64437.710005 59219.165416 27453.080641   8.964016     8.420430                   0.000000                     0.000000      8             1
+             ridge_alpha_10_log1p_target                  ridge_regression            log1p -0.558273  -0.525082 0.552930  -1.311923  0.153824 49469.214681 42555.646487 18312.388895  64295.733055 55531.058643 28064.466539   9.459936     8.687343                   0.656250                     0.625000      8             0
+            ridge_alpha_100_log1p_target                  ridge_regression            log1p -0.671836  -0.302603 0.959852  -2.141740  0.190470 49300.579129 45156.789873 15879.325761  62924.571400 56693.830451 24285.928824   9.706555     9.757806                   0.614583                     0.541667      8             2
+                          ridge_alpha_10                  ridge_regression             none -1.106235  -0.791558 1.198509  -3.546776  0.055485 56485.732367 47743.808674 23002.042409  72351.731719 66549.651542 31088.282793  10.847082     9.597367                   0.619792                     0.625000      8             0
+                           ridge_alpha_1                  ridge_regression             none -1.157860  -1.032225 1.096554  -3.266907 -0.067938 58883.474410 48931.679664 27004.933663  74864.417340 67874.173001 34656.778888  11.220560     9.805956                   0.630208                     0.645833      8             0
+                         ridge_alpha_100                  ridge_regression             none -1.330680  -0.731192 1.788288  -4.915149  0.170705 57157.939205 50675.566950 17240.182961  69520.164348 63654.875128 22693.745975  11.434912    10.293049                   0.598958                     0.562500      8             1
+                      seasonal_naive_24h                             naive             none -2.285555  -2.144867 2.593075  -7.716171  0.297746 66990.994865 62504.887620 32076.147910  87002.358101 81581.511065 42247.944667  12.740024    12.538391                   0.578125                     0.583333      8             1
+     gradient_boosted_stumps_200_lr_0_03 gradient_boosted_regression_trees             none -3.421163  -0.955329 5.529512 -16.752479 -0.368085 85250.107228 59105.908922 68813.880253 104121.461446 72760.260779 78300.665723  16.538527    12.315896                   0.541667                     0.541667      8             0
+     gradient_boosted_stumps_100_lr_0_05 gradient_boosted_regression_trees             none -3.988036  -1.517335 5.770342 -17.716339 -0.570685 91809.751363 68779.095337 69175.565439 110542.674495 80931.773993 79281.743789  17.975723    14.460699                   0.526042                     0.500000      8             0
 ```
