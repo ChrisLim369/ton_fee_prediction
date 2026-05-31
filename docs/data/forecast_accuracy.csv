@@ -1,0 +1,1 @@
+forecast_generated_at,forecast_hour,horizon_hours,model_name,predicted_avg_total_fee,actual_avg_total_fee,error,absolute_error,pct_error,last_observed_fee,persistence_pred,persistence_absolute_error,direction_correct,actual_is_capped
