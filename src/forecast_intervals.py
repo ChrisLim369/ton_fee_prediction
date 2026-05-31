@@ -69,39 +69,91 @@ def summarize_intervals(
     residuals: dict[int, list[float]],
     levels: list[int],
     min_residuals: int = MIN_RESIDUALS_PER_HORIZON,
-) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+) -> dict[str, dict[str, Any]]:
     by_horizon: dict[str, dict[str, Any]] = {}
-    overall_values = {level: [] for level in levels}
     for horizon, values in sorted(residuals.items()):
         arr = np.asarray(values, dtype=float)
         entry: dict[str, Any] = {"n": int(len(arr))}
         for level in levels:
             level_key = str(level)
             if len(arr) < min_residuals:
-                entry[level_key] = {"width_lo": None, "width_hi": None, "coverage": None}
+                entry[level_key] = {"width_lo": None, "width_hi": None}
                 continue
             lower_q, upper_q = central_quantiles(level)
             raw_lo = float(np.quantile(arr, lower_q))
             raw_hi = float(np.quantile(arr, upper_q))
             width_lo = min(raw_lo, 0.0)
             width_hi = max(raw_hi, 0.0)
-            coverage = float(np.mean((arr >= width_lo) & (arr <= width_hi)))
-            entry[level_key] = {"width_lo": width_lo, "width_hi": width_hi, "coverage": coverage}
-            overall_values[level].append((arr, width_lo, width_hi))
+            entry[level_key] = {"width_lo": width_lo, "width_hi": width_hi}
+        by_horizon[str(horizon)] = entry
+    return by_horizon
+
+
+def calibration_out_of_sample(
+    residuals: dict[int, list[float]],
+    levels: list[int],
+    fit_fraction: float = 0.7,
+    min_residuals: int = MIN_RESIDUALS_PER_HORIZON,
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    by_horizon: dict[str, dict[str, Any]] = {}
+    overall_values: dict[int, list[tuple[np.ndarray, float, float]]] = {level: [] for level in levels}
+
+    for horizon, values in sorted(residuals.items()):
+        arr = np.asarray(values, dtype=float)
+        split_index = int(len(arr) * fit_fraction)
+        fit = arr[:split_index]
+        check = arr[split_index:]
+        entry: dict[str, Any] = {
+            "calibration": {
+                "method": "out_of_sample_chronological",
+                "fit_fraction": fit_fraction,
+                "fit_n": int(len(fit)),
+                "check_n": int(len(check)),
+            }
+        }
+        for level in levels:
+            level_key = str(level)
+            if len(fit) < min_residuals or len(check) < min_residuals:
+                entry[level_key] = {"coverage_oos": None}
+                continue
+            lower_q, upper_q = central_quantiles(level)
+            raw_lo = float(np.quantile(fit, lower_q))
+            raw_hi = float(np.quantile(fit, upper_q))
+            width_lo = min(raw_lo, 0.0)
+            width_hi = max(raw_hi, 0.0)
+            coverage = float(np.mean((check >= width_lo) & (check <= width_hi)))
+            entry[level_key] = {"coverage_oos": coverage}
+            overall_values[level].append((check, width_lo, width_hi))
         by_horizon[str(horizon)] = entry
 
     overall: dict[str, dict[str, Any]] = {}
     for level, groups in overall_values.items():
         if not groups:
-            overall[str(level)] = {"n": 0, "coverage": None}
+            overall[str(level)] = {"check_n": 0, "coverage_oos": None}
             continue
         covered = 0
         total = 0
-        for arr, width_lo, width_hi in groups:
-            covered += int(np.sum((arr >= width_lo) & (arr <= width_hi)))
-            total += int(len(arr))
-        overall[str(level)] = {"n": total, "coverage": float(covered / total) if total else None}
+        for check, width_lo, width_hi in groups:
+            covered += int(np.sum((check >= width_lo) & (check <= width_hi)))
+            total += int(len(check))
+        overall[str(level)] = {"check_n": total, "coverage_oos": float(covered / total) if total else None}
     return by_horizon, overall
+
+
+def attach_calibration(
+    by_horizon: dict[str, dict[str, Any]],
+    calibration: dict[str, dict[str, Any]],
+    levels: list[int],
+) -> dict[str, dict[str, Any]]:
+    output = json.loads(json.dumps(by_horizon))
+    for horizon, horizon_calibration in calibration.items():
+        entry = output.setdefault(horizon, {"n": 0})
+        entry["calibration"] = horizon_calibration.get("calibration", {})
+        for level in levels:
+            level_key = str(level)
+            level_entry = entry.setdefault(level_key, {})
+            level_entry["coverage_oos"] = horizon_calibration.get(level_key, {}).get("coverage_oos")
+    return output
 
 
 def interval_columns(level: int) -> tuple[str, str, str, str]:
@@ -182,19 +234,29 @@ def write_report(path: Path, payload: dict[str, Any]) -> None:
         "",
         "## Calibration",
         "",
-        "| Horizon | n | 80% observed | 50% observed |",
-        "|---:|---:|---:|---:|",
+        "Out-of-sample calibration: quantiles are fit on earlier anchors, then coverage is measured on "
+        "held-out later anchors.",
+        f"Configuration: method={payload['calibration']['method']}, "
+        f"fit_fraction={payload['calibration']['fit_fraction']}.",
+        "Unlike in-sample quantile coverage, these observed values are not guaranteed to equal the nominal "
+        "80% or 50%.",
+        "",
+        "| Horizon | total_n | check_n | 80% observed OOS | 50% observed OOS |",
+        "|---:|---:|---:|---:|---:|",
     ]
     for horizon, values in payload["by_horizon"].items():
+        calibration = values.get("calibration", {})
         lines.append(
-            f"| h+{horizon} | {values['n']} | "
-            f"{format_coverage(values.get('80', {}).get('coverage'))} | "
-            f"{format_coverage(values.get('50', {}).get('coverage'))} |"
+            f"| h+{horizon} | {values['n']} | {calibration.get('check_n', 0)} | "
+            f"{format_coverage(values.get('80', {}).get('coverage_oos'))} | "
+            f"{format_coverage(values.get('50', {}).get('coverage_oos'))} |"
         )
 
-    lines.extend(["", "## Overall Coverage", "", "| Nominal | Observed | n |", "|---:|---:|---:|"])
+    lines.extend(["", "## Overall Coverage", "", "| Nominal | Observed OOS | check_n |", "|---:|---:|---:|"])
     for level, values in payload["overall_coverage"].items():
-        lines.append(f"| {level}% | {format_coverage(values.get('coverage'))} | {values.get('n', 0)} |")
+        lines.append(
+            f"| {level}% | {format_coverage(values.get('coverage_oos'))} | {values.get('check_n', 0)} |"
+        )
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -226,7 +288,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         step_hours=args.step_hours,
         min_history_hours=args.min_history_hours,
     )
-    by_horizon, overall_coverage = summarize_intervals(residuals, levels)
+    interval_widths = summarize_intervals(residuals, levels)
+    calibration_by_horizon, overall_coverage = calibration_out_of_sample(
+        residuals=residuals,
+        levels=levels,
+        fit_fraction=args.calibration_fit_fraction,
+    )
+    by_horizon = attach_calibration(interval_widths, calibration_by_horizon, levels)
 
     predictions = pd.read_csv(predictions_path)
     predictions_with_intervals = apply_intervals_to_predictions(predictions, by_horizon, levels)
@@ -237,6 +305,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "method": "in_sample_replay",
         "levels": levels,
         "min_residuals_per_horizon": MIN_RESIDUALS_PER_HORIZON,
+        "calibration": {
+            "method": "out_of_sample_chronological",
+            "fit_fraction": args.calibration_fit_fraction,
+        },
         "by_horizon": by_horizon,
         "overall_coverage": overall_coverage,
         "limitations": [
@@ -271,6 +343,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-history-hours", type=int, default=168)
     parser.add_argument("--horizon-hours", type=int, default=24)
     parser.add_argument("--levels", default="80,50")
+    parser.add_argument("--calibration-fit-fraction", type=float, default=0.7)
     return parser
 
 
@@ -282,6 +355,8 @@ def main() -> int:
         raise ValueError("--min-history-hours must be at least 1")
     if args.horizon_hours < 1:
         raise ValueError("--horizon-hours must be at least 1")
+    if not 0 < args.calibration_fit_fraction < 1:
+        raise ValueError("--calibration-fit-fraction must be between 0 and 1")
     print(json.dumps(run(args), indent=2))
     return 0
 

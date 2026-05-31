@@ -31,11 +31,59 @@ def test_replay_residuals_group_by_horizon() -> None:
 
 
 def test_summarize_intervals_uses_na_for_small_horizon_samples() -> None:
-    by_horizon, overall = forecast_intervals.summarize_intervals({1: [1.0] * 19}, [80, 50])
+    by_horizon = forecast_intervals.summarize_intervals({1: [1.0] * 19}, [80, 50])
 
-    assert by_horizon["1"]["80"] == {"width_lo": None, "width_hi": None, "coverage": None}
-    assert by_horizon["1"]["50"] == {"width_lo": None, "width_hi": None, "coverage": None}
-    assert overall["80"] == {"n": 0, "coverage": None}
+    assert by_horizon["1"]["80"] == {"width_lo": None, "width_hi": None}
+    assert by_horizon["1"]["50"] == {"width_lo": None, "width_hi": None}
+
+
+def test_calibration_out_of_sample_is_not_quantile_identity() -> None:
+    residuals = {1: [0.0] * 70 + [100.0] * 30}
+
+    by_horizon, overall = forecast_intervals.calibration_out_of_sample(
+        residuals,
+        [80],
+        fit_fraction=0.7,
+        min_residuals=20,
+    )
+
+    assert by_horizon["1"]["calibration"] == {
+        "method": "out_of_sample_chronological",
+        "fit_fraction": 0.7,
+        "fit_n": 70,
+        "check_n": 30,
+    }
+    assert by_horizon["1"]["80"]["coverage_oos"] == 0.0
+    assert overall["80"] == {"check_n": 30, "coverage_oos": 0.0}
+
+
+def test_calibration_out_of_sample_requires_minimum_check_samples() -> None:
+    by_horizon, overall = forecast_intervals.calibration_out_of_sample(
+        {1: list(range(25))},
+        [80],
+        fit_fraction=0.8,
+        min_residuals=20,
+    )
+
+    assert by_horizon["1"]["80"]["coverage_oos"] is None
+    assert overall["80"] == {"check_n": 0, "coverage_oos": None}
+
+
+def test_attach_calibration_keeps_production_widths_from_full_residuals() -> None:
+    residuals = {1: [0.0] * 70 + [100.0] * 30}
+    widths = forecast_intervals.summarize_intervals(residuals, [80], min_residuals=20)
+    calibration, _overall = forecast_intervals.calibration_out_of_sample(
+        residuals,
+        [80],
+        fit_fraction=0.7,
+        min_residuals=20,
+    )
+
+    output = forecast_intervals.attach_calibration(widths, calibration, [80])
+
+    assert output["1"]["80"]["width_lo"] == widths["1"]["80"]["width_lo"]
+    assert output["1"]["80"]["width_hi"] == widths["1"]["80"]["width_hi"]
+    assert output["1"]["80"]["coverage_oos"] == 0.0
 
 
 def test_apply_intervals_preserves_points_and_orders_bounds() -> None:
@@ -102,6 +150,8 @@ def test_run_adds_interval_columns_without_changing_point_predictions(tmp_path: 
                 "3",
                 "--min-history-hours",
                 "24",
+                "--calibration-fit-fraction",
+                "0.7",
             ]
         )
     )
@@ -112,6 +162,10 @@ def test_run_adds_interval_columns_without_changing_point_predictions(tmp_path: 
         assert f"predicted_avg_total_fee_{suffix}" in output.columns
     assert (output["predicted_avg_total_fee_lo80"] >= 0).all()
     assert report_path.read_text(encoding="utf-8").startswith("# Forecast Prediction Intervals")
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    assert "coverage" not in payload["by_horizon"]["1"]["80"]
+    assert "coverage_oos" in payload["by_horizon"]["1"]["80"]
+    assert payload["calibration"]["method"] == "out_of_sample_chronological"
 
 
 def generate_predictions(
