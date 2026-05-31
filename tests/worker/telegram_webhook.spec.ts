@@ -18,6 +18,38 @@ const env = {
   TELEGRAM_WEBHOOK_SECRET: "test-secret",
 };
 
+function operationalMetrics(status = "active") {
+  return {
+    generated_at_utc: generatedAt,
+    status,
+    reconciled_rows: status === "active" ? 12 : 0,
+    pending_rows: status === "active" ? 3 : 24,
+    overall: {
+      n: status === "active" ? 12 : 0,
+      mae: status === "active" ? 1000 : null,
+      rmse: status === "active" ? 1200 : null,
+      mape: status === "active" ? 10 : null,
+      r2: null,
+      directional_accuracy: status === "active" ? 0.75 : null,
+      persistence_mae: status === "active" ? 1500 : null,
+      skill_score: status === "active" ? 0.3333 : null,
+    },
+    by_horizon: {
+      "1": {
+        n: status === "active" ? 12 : 0,
+        mae: status === "active" ? 1000 : null,
+        rmse: status === "active" ? 1200 : null,
+        mape: status === "active" ? 10 : null,
+        r2: null,
+        directional_accuracy: status === "active" ? 0.75 : null,
+        persistence_mae: status === "active" ? 1500 : null,
+        skill_score: status === "active" ? 0.3333 : null,
+      },
+    },
+    by_capped: { clean: { n: 0 }, capped: { n: 0 } },
+  };
+}
+
 function contextFor(text: string, chatId: number, secret = "test-secret") {
   const headers = new Headers({ "content-type": "application/json" });
   if (secret) {
@@ -33,7 +65,7 @@ function contextFor(text: string, chatId: number, secret = "test-secret") {
   } as never;
 }
 
-function installFetchMock(sentTexts: string[]) {
+function installFetchMock(sentTexts: string[], metrics = operationalMetrics()) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -48,6 +80,9 @@ function installFetchMock(sentTexts: string[]) {
       }
       if (url.endsWith("/data/predictions.csv")) {
         return new Response(predictionsCsv, { status: 200 });
+      }
+      if (url.endsWith("/data/models/operational_metrics.json")) {
+        return new Response(JSON.stringify(metrics), { status: 200 });
       }
       if (url.endsWith("/figures/forecast_next_24h.png")) {
         return new Response(new Blob(["png"], { type: "image/png" }), { status: 200 });
@@ -96,6 +131,23 @@ describe("Cloudflare Telegram webhook", () => {
     const response = await onRequestPost(contextFor("/unknown", 13));
     expect(response.status).toBe(200);
     expect(sentTexts.join("\n")).toContain("Unknown command");
+  });
+
+  it("handles /accuracy with live metrics", async () => {
+    const sentTexts: string[] = [];
+    installFetchMock(sentTexts);
+    const response = await onRequestPost(contextFor("/accuracy", 15));
+    expect(response.status).toBe(200);
+    expect(sentTexts.join("\n")).toContain("Operational (live) Accuracy");
+    expect(sentTexts.join("\n")).toContain("Status: active");
+  });
+
+  it("shows accumulating status for /accuracy", async () => {
+    const sentTexts: string[] = [];
+    installFetchMock(sentTexts, operationalMetrics("accumulating"));
+    const response = await onRequestPost(contextFor("/accuracy", 16));
+    expect(response.status).toBe(200);
+    expect(sentTexts.join("\n")).toContain("아직 누적 중");
   });
 
   it("rate limits repeated chat ids", async () => {

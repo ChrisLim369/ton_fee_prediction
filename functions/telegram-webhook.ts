@@ -50,6 +50,7 @@ export const onRequestGet: PagesFunction<Env> = async () => jsonResponse({
   commands: [
     "/forecast",
     "/besttime",
+    "/accuracy",
     "/timezone",
   ],
   note: "Only user-facing commands are listed. Internal diagnostics remain callable when typed directly.",
@@ -146,6 +147,8 @@ class Dashboard {
           return await this.compare();
         case "/backtest":
           return await this.backtest();
+        case "/accuracy":
+          return await this.accuracy();
         case "/quality":
           return await this.quality(timeContext);
         case "/charts":
@@ -377,8 +380,9 @@ class Dashboard {
     const rollingR2 = toNumber(rows[0].mean_r2);
 
     const lines = [
-      "Rolling Backtest",
+      "Rolling Backtest (in-sample)",
       "",
+      "Label: in-sample backtest, not live operational accuracy.",
       `Best model by mean R2: ${stringValue(rows[0].model_name)}`,
       `Mean R2: ${formatMetric(rollingR2)}`,
       `Mean MAE: ${formatNanoton(rows[0].mean_mae)}`,
@@ -409,6 +413,40 @@ class Dashboard {
       lines.push(
         "Interpretation: compare rolling metrics with holdout metrics before relying on the forecast; higher consistency across folds means a more reliable signal.",
       );
+    }
+    return lines.join("\n");
+  }
+
+  async accuracy(): Promise<string> {
+    const metrics = await readJson(new URL("/data/models/operational_metrics.json", this.requestUrl).toString());
+    const status = stringValue(metrics.status);
+    const reconciledRows = metrics.reconciled_rows;
+    const pendingRows = metrics.pending_rows;
+    const overall = recordValue(metrics.overall);
+    const byHorizon = recordValue(metrics.by_horizon);
+
+    const lines = [
+      "Operational (live) Accuracy",
+      "",
+      "Measures forecasts after they were published. This is separate from in-sample backtests.",
+      `Status: ${status}`,
+      `Reconciled rows: ${formatCount(reconciledRows)}`,
+      `Pending rows: ${formatCount(pendingRows)}`,
+      `Generated at: ${formatTimestamp(metrics.generated_at_utc)}`,
+      "",
+    ];
+    if (status === "accumulating") {
+      lines.push(`아직 누적 중(reconciled=${formatCount(reconciledRows)}).`, "");
+    }
+
+    lines.push("Overall:", formatOperationalMetric("overall", overall), "", "By horizon:");
+    const horizonEntries = Object.entries(byHorizon).sort(([left], [right]) => Number(left) - Number(right));
+    if (horizonEntries.length === 0) {
+      lines.push("n/a");
+    } else {
+      for (const [horizon, values] of horizonEntries) {
+        lines.push(formatOperationalMetric(`${horizon}h`, recordValue(values)));
+      }
     }
     return lines.join("\n");
   }
@@ -638,6 +676,7 @@ function commandList(): string {
     "Commands:",
     "/forecast - Next 24-hour predicted average transaction fees",
     "/besttime - Estimated cheapest hour to send a transaction",
+    "/accuracy - Operational live accuracy from previously published forecasts",
     "/timezone - Show timezone detection and override examples",
     "",
     "Times are shown in the detected Telegram language timezone when possible.",
@@ -870,6 +909,20 @@ function formatTimestamp(value: unknown, timeContext: TimeContext = { timezone: 
 
 function formatHour(value: unknown, timeContext: TimeContext): string {
   return formatTimestamp(value, timeContext);
+}
+
+function recordValue(value: unknown): JsonObject {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as JsonObject) : {};
+}
+
+function formatOperationalMetric(label: string, values: JsonObject): string {
+  return [
+    `${label}: n=${formatCount(values.n)}`,
+    `MAE=${formatNanoton(values.mae)}`,
+    `MAPE=${formatMetric(values.mape, 2)}%`,
+    `directional=${formatMetric(values.directional_accuracy, 4)}`,
+    `skill=${formatMetric(values.skill_score, 4)}`,
+  ].join(", ");
 }
 
 function stringValue(value: unknown): string {

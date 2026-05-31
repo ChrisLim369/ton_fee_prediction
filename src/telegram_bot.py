@@ -32,6 +32,7 @@ I estimate the next 24 hours of TON transaction fees using recent on-chain activ
 Commands:
 /forecast - Next 24-hour predicted average transaction fees
 /besttime - Estimated cheapest hour to send a transaction
+/accuracy - Operational live accuracy from previously published forecasts
 /timezone - Show timezone detection and override examples
 
 Times are shown in the detected Telegram language timezone when possible.
@@ -100,6 +101,10 @@ class ProjectPaths:
     @property
     def rolling_backtest(self) -> Path:
         return self.root / "models" / "rolling_backtest.csv"
+
+    @property
+    def operational_metrics(self) -> Path:
+        return self.root / "models" / "operational_metrics.json"
 
     @property
     def last_updated(self) -> Path:
@@ -625,8 +630,9 @@ class Dashboard:
         rolling_r2 = to_float(best.get("mean_r2"))
 
         lines = [
-            "Rolling Backtest",
+            "Rolling Backtest (in-sample)",
             "",
+            "Label: in-sample backtest, not live operational accuracy.",
             f"Best model by mean R2: {best.get('model_name', 'n/a')}",
             f"Mean R2: {format_metric(rolling_r2)}",
             f"Mean MAE: {format_nanoton(best.get('mean_mae'))}",
@@ -660,6 +666,37 @@ class Dashboard:
                 "Interpretation: compare rolling metrics with holdout metrics before relying on the forecast; "
                 "higher consistency across folds means a more reliable signal."
             )
+        return "\n".join(lines)
+
+    def accuracy(self) -> str:
+        metrics = read_json(self.paths.operational_metrics)
+        status = str(metrics.get("status", "n/a"))
+        reconciled = metrics.get("reconciled_rows")
+        pending = metrics.get("pending_rows")
+        overall = metrics.get("overall") if isinstance(metrics.get("overall"), dict) else {}
+        by_horizon = metrics.get("by_horizon") if isinstance(metrics.get("by_horizon"), dict) else {}
+
+        lines = [
+            "Operational (live) Accuracy",
+            "",
+            "Measures forecasts after they were published. This is separate from in-sample backtests.",
+            f"Status: {status}",
+            f"Reconciled rows: {format_count(reconciled)}",
+            f"Pending rows: {format_count(pending)}",
+            f"Generated at: {format_timestamp(metrics.get('generated_at_utc'))}",
+            "",
+        ]
+        if status == "accumulating":
+            lines.extend([f"아직 누적 중(reconciled={format_count(reconciled)}).", ""])
+
+        lines.extend(["Overall:", format_operational_metric("overall", overall), "", "By horizon:"])
+        if by_horizon:
+            for horizon, values in sorted(by_horizon.items(), key=lambda item: to_int(item[0], 0) or 0):
+                label = f"{horizon}h"
+                if isinstance(values, dict):
+                    lines.append(format_operational_metric(label, values))
+        else:
+            lines.append("n/a")
         return "\n".join(lines)
 
     def quality(self, time_context: TimeContext | None = None) -> str:
@@ -782,6 +819,16 @@ def format_hour(value: Any, context: TimeContext | None = None) -> str:
     return format_timestamp_for_timezone(value, context)
 
 
+def format_operational_metric(label: str, values: dict[str, Any]) -> str:
+    return (
+        f"{label}: n={format_count(values.get('n'))}, "
+        f"MAE={format_nanoton(values.get('mae'))}, "
+        f"MAPE={format_metric(values.get('mape'), 2)}%, "
+        f"directional={format_metric(values.get('directional_accuracy'), 4)}, "
+        f"skill={format_metric(values.get('skill_score'), 4)}"
+    )
+
+
 class TelegramClient:
     def __init__(self, token: str, request_timeout: int = 30) -> None:
         self.token = token
@@ -885,6 +932,7 @@ def build_handlers(dashboard: Dashboard) -> dict[str, Callable[[TimeContext], st
         "/model": lambda _time_context: dashboard.model(),
         "/compare": lambda _time_context: dashboard.compare(),
         "/backtest": lambda _time_context: dashboard.backtest(),
+        "/accuracy": lambda _time_context: dashboard.accuracy(),
         "/quality": dashboard.quality,
         "/charts": lambda _time_context: dashboard.charts(),
     }
@@ -961,6 +1009,7 @@ def validate_dashboard(dashboard: Dashboard) -> int:
         ("/model", dashboard.model),
         ("/compare", dashboard.compare),
         ("/backtest", dashboard.backtest),
+        ("/accuracy", dashboard.accuracy),
         ("/quality", dashboard.quality),
         ("/charts", dashboard.charts),
     ]
