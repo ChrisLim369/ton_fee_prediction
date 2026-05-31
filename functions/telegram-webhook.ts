@@ -103,7 +103,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   await sendTelegramMessage(token, chatId, responseText);
   if (commandName(update.message?.text ?? "") === "/forecast") {
     try {
-      await sendTelegramPhoto(token, chatId, `${new URL(req.url).origin}/figures/forecast_next_24h.png`, "24-hour forecast chart");
+      await sendTelegramPhoto(token, chatId, req.url, "24-hour forecast chart");
     } catch (error) {
       console.error("Forecast chart send failed:", error);
     }
@@ -588,14 +588,17 @@ async function sendTelegramMessage(token: string, chatId: number | string, text:
   }
 }
 
-async function sendTelegramPhoto(token: string, chatId: number | string, photoUrl: string, caption?: string): Promise<void> {
-  const payload = new URLSearchParams({
-    chat_id: String(chatId),
-    photo: photoUrl,
-  });
-  if (caption) {
-    payload.set("caption", caption);
+async function sendTelegramPhoto(token: string, chatId: number | string, requestUrl: string, caption?: string): Promise<void> {
+  const image = await fetch(new URL("/figures/forecast_next_24h.png", requestUrl));
+  if (!image.ok) {
+    throw new Error(`forecast_next_24h.png fetch failed with HTTP ${image.status}`);
   }
+  const payload = new FormData();
+  payload.append("chat_id", String(chatId));
+  if (caption) {
+    payload.append("caption", caption);
+  }
+  payload.append("photo", await image.blob(), "forecast_next_24h.png");
   const response = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
     method: "POST",
     body: payload,
