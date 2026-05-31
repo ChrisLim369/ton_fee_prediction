@@ -414,6 +414,15 @@ def compact_ton(value: Any) -> str:
     return f"{numeric:.6f} TON"
 
 
+def compact_ton_with_interval(row: dict[str, str], fee: Any) -> str:
+    point = compact_ton(fee)
+    lo80 = to_float(row.get("predicted_avg_total_fee_lo80"))
+    hi80 = to_float(row.get("predicted_avg_total_fee_hi80"))
+    if lo80 is None or hi80 is None:
+        return point
+    return f"{point} (80%: {compact_ton(lo80)} - {compact_ton(hi80)})"
+
+
 def ascii_bar(value: float, max_value: float, width: int = 12) -> str:
     if max_value <= 0:
         return "." * width
@@ -502,7 +511,21 @@ class Dashboard:
         ]
 
         for index, (row, fee) in enumerate(top_cheapest, start=1):
-            lines.append(f"{index}. {format_timestamp_for_timezone(row.get('forecast_hour'), time_context)} - {compact_ton(fee)}")
+            lines.append(
+                f"{index}. {format_timestamp_for_timezone(row.get('forecast_hour'), time_context)} - "
+                f"{compact_ton_with_interval(row, fee)}"
+            )
+
+        lines.extend(["", "Forecast by horizon:"])
+        for row in rows:
+            fee = to_float(row.get("predicted_avg_total_fee"))
+            if fee is None:
+                continue
+            lines.append(
+                f"h+{format_count(row.get('horizon_hours'))}: "
+                f"{format_timestamp_for_timezone(row.get('forecast_hour'), time_context)} - "
+                f"{compact_ton_with_interval(row, fee)}"
+            )
 
         if warnings:
             lines.extend(["", *[f"Warning: {warning}" for warning in warnings]])

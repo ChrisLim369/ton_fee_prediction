@@ -244,8 +244,26 @@ class Dashboard {
     ];
 
     topCheapest.forEach((item, index) => {
-      lines.push(`${index + 1}. ${formatTimestamp(item.row.forecast_hour, timeContext)} - ${compactTon(item.fee)}`);
+      lines.push(
+        `${index + 1}. ${formatTimestamp(item.row.forecast_hour, timeContext)} - ${compactTonWithInterval(
+          item.row,
+          item.fee,
+        )}`,
+      );
     });
+    lines.push("", "Forecast by horizon:");
+    for (const row of stats.rows) {
+      const fee = toNumber(row.predicted_avg_total_fee);
+      if (fee === null) {
+        continue;
+      }
+      lines.push(
+        `h+${formatCount(row.horizon_hours)}: ${formatTimestamp(row.forecast_hour, timeContext)} - ${compactTonWithInterval(
+          row,
+          fee,
+        )}`,
+      );
+    }
     for (const warning of freshness.warnings) {
       lines.push(`Warning: ${warning}`);
     }
@@ -826,6 +844,16 @@ function nanotonToTon(value: unknown): number | null {
 function compactTon(value: unknown): string {
   const numeric = nanotonToTon(value);
   return numeric === null ? "n/a" : `${numeric.toFixed(6)} TON`;
+}
+
+function compactTonWithInterval(row: CsvRow, fee: unknown): string {
+  const point = compactTon(fee);
+  const lo80 = toNumber(row.predicted_avg_total_fee_lo80);
+  const hi80 = toNumber(row.predicted_avg_total_fee_hi80);
+  if (lo80 === null || hi80 === null) {
+    return point;
+  }
+  return `${point} (80%: ${compactTon(lo80)} - ${compactTon(hi80)})`;
 }
 
 function asciiBar(value: number, maxValue: number, width = 12): string {

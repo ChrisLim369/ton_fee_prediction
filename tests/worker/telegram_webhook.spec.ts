@@ -13,6 +13,13 @@ const predictionsCsv = [
   `${generatedAt},${isoHoursFromNow(3)},3,1500000,0.0015,best,${generatedAt}`,
 ].join("\n");
 
+const predictionsCsvWithIntervals = [
+  "forecast_generated_at,forecast_hour,horizon_hours,predicted_avg_total_fee,predicted_avg_total_fee_ton,model_name,model_trained_at_utc,predicted_avg_total_fee_lo80,predicted_avg_total_fee_hi80",
+  `${generatedAt},${isoHoursFromNow(1)},1,1000000,0.001,best,${generatedAt},800000,1200000`,
+  `${generatedAt},${isoHoursFromNow(2)},2,2000000,0.002,best,${generatedAt},1600000,2400000`,
+  `${generatedAt},${isoHoursFromNow(3)},3,1500000,0.0015,best,${generatedAt},1200000,1800000`,
+].join("\n");
+
 const env = {
   TELEGRAM_BOT_TOKEN: "test-token",
   TELEGRAM_WEBHOOK_SECRET: "test-secret",
@@ -65,7 +72,7 @@ function contextFor(text: string, chatId: number, secret = "test-secret") {
   } as never;
 }
 
-function installFetchMock(sentTexts: string[], metrics = operationalMetrics()) {
+function installFetchMock(sentTexts: string[], metrics = operationalMetrics(), csv = predictionsCsv) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -79,7 +86,7 @@ function installFetchMock(sentTexts: string[], metrics = operationalMetrics()) {
         return new Response(JSON.stringify({ ok: true }), { status: 200 });
       }
       if (url.endsWith("/data/predictions.csv")) {
-        return new Response(predictionsCsv, { status: 200 });
+        return new Response(csv, { status: 200 });
       }
       if (url.endsWith("/data/models/operational_metrics.json")) {
         return new Response(JSON.stringify(metrics), { status: 200 });
@@ -115,6 +122,16 @@ describe("Cloudflare Telegram webhook", () => {
     const response = await onRequestPost(contextFor("/forecast", 11));
     expect(response.status).toBe(200);
     expect(sentTexts.join("\n")).toContain("TON Fee Forecast");
+    expect(sentTexts.join("\n")).not.toContain("80%:");
+  });
+
+  it("shows forecast intervals when prediction columns are present", async () => {
+    const sentTexts: string[] = [];
+    installFetchMock(sentTexts, operationalMetrics(), predictionsCsvWithIntervals);
+    const response = await onRequestPost(contextFor("/forecast", 17));
+    expect(response.status).toBe(200);
+    expect(sentTexts.join("\n")).toContain("80%:");
+    expect(sentTexts.join("\n")).toContain("Forecast by horizon");
   });
 
   it("uses the requested timezone for /forecast", async () => {
