@@ -13,7 +13,7 @@ type TelegramUpdate = {
   message?: TelegramMessage;
 };
 
-const FORECAST_STALE_HOURS = 6;
+const FORECAST_STALE_HOURS = 26;
 // Best-effort only: Cloudflare isolates do not share module-level state.
 const lastSeen = new Map<number, number>();
 const LANGUAGE_TIMEZONE_MAP: Record<string, string> = {
@@ -437,6 +437,7 @@ class Dashboard {
   }
 
   async charts(): Promise<string> {
+    forecastStats(await readCsvRows(this.path("predictions.csv")));
     const files = CHART_FILES;
 
     if (files.length === 0) {
@@ -735,7 +736,14 @@ function toInteger(value: unknown): number | null {
 }
 
 function forecastStats(rows: CsvRow[]): ForecastStats {
-  const sortedRows = sortByNumber(rows, "horizon_hours", false);
+  const now = Date.now();
+  const sortedRows = sortByNumber(rows, "horizon_hours", false).filter((row) => {
+    const forecastHour = parseTimestamp(row.forecast_hour);
+    return !forecastHour || forecastHour.getTime() >= now;
+  });
+  if (sortedRows.length === 0) {
+    throw new DashboardError("다음 갱신 대기 중 (forecast가 만료됨)");
+  }
   const numericRows = sortedRows
     .map((row) => ({ row, fee: toNumber(row.predicted_avg_total_fee) }))
     .filter((item): item is { row: CsvRow; fee: number } => item.fee !== null);

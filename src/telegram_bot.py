@@ -22,7 +22,7 @@ import requests
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MAX_TELEGRAM_MESSAGE_LENGTH = 3900
 NANOTON_PER_TON = 1_000_000_000
-FORECAST_STALE_HOURS = 6
+FORECAST_STALE_HOURS = 26
 
 
 HELP_TEXT = """TON Fee Forecast Bot
@@ -370,8 +370,14 @@ def sorted_by_float(rows: list[dict[str, str]], column: str, reverse: bool = Tru
 
 def load_forecast_stats(predictions_path: Path) -> ForecastStats:
     rows = sorted_by_float(read_csv_rows(predictions_path), "horizon_hours", reverse=False)
+    now = datetime.now(UTC)
+    rows = [
+        row
+        for row in rows
+        if (forecast_hour := parse_timestamp(row.get("forecast_hour"))) is None or forecast_hour >= now
+    ]
     if not rows:
-        raise DashboardError("predictions.csv has no forecast rows.")
+        raise DashboardError("다음 갱신 대기 중 (forecast가 만료됨)")
 
     numeric_rows: list[tuple[dict[str, str], float]] = []
     for row in rows:
@@ -704,6 +710,7 @@ class Dashboard:
         )
 
     def charts(self) -> str:
+        load_forecast_stats(self.paths.predictions)
         if not self.paths.figures_dir.exists():
             raise DashboardError(f"Missing directory: {relative(self.paths.figures_dir)}")
 

@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestGet, onRequestPost } from "../../functions/telegram-webhook.js";
 
+function isoHoursFromNow(hours: number): string {
+  return new Date(Date.now() + hours * 3_600_000).toISOString().replace(".000", "");
+}
+
+const generatedAt = isoHoursFromNow(-1);
 const predictionsCsv = [
   "forecast_generated_at,forecast_hour,horizon_hours,predicted_avg_total_fee,predicted_avg_total_fee_ton,model_name,model_trained_at_utc",
-  "2026-05-31T05:00:00Z,2026-05-31T06:00:00Z,1,1000000,0.001,best,2026-05-31T04:00:00Z",
-  "2026-05-31T05:00:00Z,2026-05-31T07:00:00Z,2,2000000,0.002,best,2026-05-31T04:00:00Z",
-  "2026-05-31T05:00:00Z,2026-05-31T08:00:00Z,3,1500000,0.0015,best,2026-05-31T04:00:00Z",
+  `${generatedAt},${isoHoursFromNow(1)},1,1000000,0.001,best,${generatedAt}`,
+  `${generatedAt},${isoHoursFromNow(2)},2,2000000,0.002,best,${generatedAt}`,
+  `${generatedAt},${isoHoursFromNow(3)},3,1500000,0.0015,best,${generatedAt}`,
 ].join("\n");
 
 const env = {
