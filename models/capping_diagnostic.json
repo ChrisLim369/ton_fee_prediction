@@ -1,0 +1,438 @@
+{
+  "generated_at_utc": "2026-05-31T13:36:02Z",
+  "coverage": {
+    "total_rows": 1512,
+    "capped_rows": 113,
+    "capped_fraction": 0.07473544973544974,
+    "capped_percent": 7.473544973544974,
+    "onset_hour": "2026-05-26T12:00:00Z",
+    "daily": [
+      {
+        "date": "2026-03-29",
+        "rows": 18,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-03-30",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-03-31",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-01",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-02",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-03",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-04",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-05",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-06",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-07",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-08",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-09",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-10",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-11",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-12",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-13",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-14",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-15",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-16",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-17",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-18",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-19",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-20",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-21",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-22",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-23",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-24",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-25",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-26",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-27",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-28",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-29",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-04-30",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-01",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-02",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-03",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-04",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-05",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-06",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-07",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-08",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-09",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-10",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-11",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-12",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-13",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-14",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-15",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-16",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-17",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-18",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-19",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-20",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-21",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-22",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-23",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-24",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-25",
+        "rows": 24,
+        "capped_rows": 0,
+        "capped_frac": 0.0
+      },
+      {
+        "date": "2026-05-26",
+        "rows": 24,
+        "capped_rows": 12,
+        "capped_frac": 0.5
+      },
+      {
+        "date": "2026-05-27",
+        "rows": 24,
+        "capped_rows": 24,
+        "capped_frac": 1.0
+      },
+      {
+        "date": "2026-05-28",
+        "rows": 24,
+        "capped_rows": 24,
+        "capped_frac": 1.0
+      },
+      {
+        "date": "2026-05-29",
+        "rows": 24,
+        "capped_rows": 24,
+        "capped_frac": 1.0
+      },
+      {
+        "date": "2026-05-30",
+        "rows": 24,
+        "capped_rows": 24,
+        "capped_frac": 1.0
+      },
+      {
+        "date": "2026-05-31",
+        "rows": 6,
+        "capped_rows": 5,
+        "capped_frac": 0.8333333333333334
+      }
+    ],
+    "known_distribution": {
+      "before_2026_05_26": "0%",
+      "2026_05_26": "50%",
+      "2026_05_27_to_2026_05_30": "100%",
+      "2026_05_31": "83%"
+    },
+    "confounding_warning": "Capped rows are concentrated in a recent continuous block, so capped vs clean differences cannot be attributed to truncation bias alone; time/regime effects are confounded.",
+    "under_flag_warning": "is_capped_hour reflects the latest collection run metadata only. Earlier capped-looking plateaus such as 2026-03-29 through 2026-04-27 with tx_count exactly 5000 can be under-flagged, but this report does not auto-relabel them because historical per-run cap metadata cannot be restored reliably."
+  },
+  "plateau": {
+    "tx_count_5000_underflagged_rows": 719,
+    "first_hour": "2026-03-29T06:00:00Z",
+    "last_hour": "2026-04-28T04:00:00Z"
+  },
+  "matched_rows": 303,
+  "dropped_missing_target_cap_rows": 0,
+  "segments": {
+    "clean": {
+      "n": 190,
+      "mae": 46038.98661298698,
+      "rmse": 69913.00605012158,
+      "mape": 8.796870909048458,
+      "r2": 0.14628340219537295,
+      "directional_accuracy": null,
+      "persistence_mae": null,
+      "skill_score": null
+    },
+    "capped": {
+      "n": 113,
+      "mae": 101683.93173532715,
+      "rmse": 168492.73235170924,
+      "mape": 16.359092603365248,
+      "r2": 0.31760720887283345,
+      "directional_accuracy": null,
+      "persistence_mae": null,
+      "skill_score": null
+    }
+  },
+  "warnings": {
+    "confounding": "Capped rows are concentrated in a recent continuous block, so capped vs clean differences cannot be attributed to truncation bias alone; time/regime effects are confounded.",
+    "under_flag": "is_capped_hour reflects the latest collection run metadata only. Earlier capped-looking plateaus such as 2026-03-29 through 2026-04-27 with tx_count exactly 5000 can be under-flagged, but this report does not auto-relabel them because historical per-run cap metadata cannot be restored reliably."
+  },
+  "future_work": "Recollect with higher max_pages and persist per-run cap metadata."
+}
