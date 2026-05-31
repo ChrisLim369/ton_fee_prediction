@@ -14,6 +14,8 @@ type TelegramUpdate = {
 };
 
 const FORECAST_STALE_HOURS = 6;
+// Best-effort only: Cloudflare isolates do not share module-level state.
+const lastSeen = new Map<number, number>();
 const LANGUAGE_TIMEZONE_MAP: Record<string, string> = {
   ko: "Asia/Seoul",
   ja: "Asia/Tokyo",
@@ -56,11 +58,13 @@ export const onRequestGet: PagesFunction<Env> = async () => jsonResponse({
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const req = context.request;
   const configuredSecret = context.env.TELEGRAM_WEBHOOK_SECRET;
-  if (configuredSecret) {
-    const receivedSecret = req.headers.get("x-telegram-bot-api-secret-token");
-    if (receivedSecret !== configuredSecret) {
-      return new Response("Forbidden", { status: 403 });
-    }
+  if (!configuredSecret) {
+    console.error("TELEGRAM_WEBHOOK_SECRET is not configured.");
+    return new Response("Webhook secret is not configured", { status: 500 });
+  }
+  const receivedSecret = req.headers.get("x-telegram-bot-api-secret-token");
+  if (receivedSecret !== configuredSecret) {
+    return new Response("Forbidden", { status: 403 });
   }
 
   const token = context.env.TELEGRAM_BOT_TOKEN;
@@ -79,6 +83,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const chatId = update.message?.chat?.id;
   if (!chatId) {
     return jsonResponse({ ok: true, ignored: "missing chat id" });
+  }
+  const numericChatId = Number(chatId);
+  if (Number.isFinite(numericChatId)) {
+    const now = Date.now();
+    const previous = lastSeen.get(numericChatId);
+    if (previous !== undefined && now - previous < 1000) {
+      return jsonResponse({ ok: true, ignored: "rate_limited" });
+    }
+    lastSeen.set(numericChatId, now);
   }
 
   const dashboard = new Dashboard(req.url);
