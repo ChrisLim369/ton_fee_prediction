@@ -1,0 +1,39 @@
+{
+  "generated_at_utc": "2026-05-31T12:53:50Z",
+  "status": "accumulating",
+  "reconciled_rows": 0,
+  "pending_rows": 24,
+  "overall": {
+    "n": 0,
+    "mae": null,
+    "rmse": null,
+    "mape": null,
+    "r2": null,
+    "directional_accuracy": null,
+    "persistence_mae": null,
+    "skill_score": null
+  },
+  "by_horizon": {},
+  "by_capped": {
+    "clean": {
+      "n": 0,
+      "mae": null,
+      "rmse": null,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": null,
+      "persistence_mae": null,
+      "skill_score": null
+    },
+    "capped": {
+      "n": 0,
+      "mae": null,
+      "rmse": null,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": null,
+      "persistence_mae": null,
+      "skill_score": null
+    }
+  }
+}
