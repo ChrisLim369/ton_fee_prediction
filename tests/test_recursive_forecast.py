@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -121,3 +122,15 @@ def test_recursive_forecast_is_bounded_for_ridge_model(tmp_path: Path) -> None:
     result = run_generate(tmp_path, features, ridge_model(float(features["avg_total_fee"].max() * 100)))
 
     assert_bounded_forecast(result, features)
+
+
+def test_recursive_forecast_matches_generate_output(tmp_path: Path) -> None:
+    features = synthetic_features()
+    model = persistence_model()
+    result = run_generate(tmp_path, features, model)
+    df = generate_forecast.numeric_hourly(tmp_path / "hourly_features.csv", model["feature_columns"])
+    generated_at = datetime.fromisoformat(result.iloc[0]["forecast_generated_at"].replace("Z", "+00:00"))
+
+    direct = pd.DataFrame(generate_forecast.recursive_forecast(df, model, 24, generated_at))
+
+    pd.testing.assert_frame_equal(result, direct)

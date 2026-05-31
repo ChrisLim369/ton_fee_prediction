@@ -104,18 +104,12 @@ def synthetic_feature_row(
     return row
 
 
-def generate(args: argparse.Namespace) -> dict[str, object] | pd.DataFrame:
-    features_path = resolve_path(args.features)
-    model_path = resolve_path(args.model)
-    output_path = resolve_path(args.output)
-
-    model = load_model(model_path)
-    feature_columns = model.get("feature_columns", MODEL_FEATURE_COLUMNS)
-    df = numeric_hourly(features_path, feature_columns)
-    if df.empty:
-        raise ValueError("hourly feature dataset is empty")
-
-    generated_at = datetime.now(UTC).replace(microsecond=0)
+def recursive_forecast(
+    df: pd.DataFrame,
+    model: dict[str, Any],
+    horizon_hours: int,
+    generated_at: datetime,
+) -> list[dict[str, object]]:
     last_hour = df["hour_dt"].max()
     history = df["avg_total_fee"].dropna().astype(float).tolist()
     if not history:
@@ -123,7 +117,7 @@ def generate(args: argparse.Namespace) -> dict[str, object] | pd.DataFrame:
     prediction_cap = max(history) * 3
 
     forecasts: list[dict[str, object]] = []
-    for horizon in range(1, args.horizon_hours + 1):
+    for horizon in range(1, horizon_hours + 1):
         forecast_hour = last_hour + pd.Timedelta(hours=horizon)
         feature_hour = forecast_hour - pd.Timedelta(hours=1)
 
@@ -150,6 +144,22 @@ def generate(args: argparse.Namespace) -> dict[str, object] | pd.DataFrame:
                 "model_trained_at_utc": model.get("trained_at_utc"),
             }
         )
+    return forecasts
+
+
+def generate(args: argparse.Namespace) -> dict[str, object] | pd.DataFrame:
+    features_path = resolve_path(args.features)
+    model_path = resolve_path(args.model)
+    output_path = resolve_path(args.output)
+
+    model = load_model(model_path)
+    feature_columns = model.get("feature_columns", MODEL_FEATURE_COLUMNS)
+    df = numeric_hourly(features_path, feature_columns)
+    if df.empty:
+        raise ValueError("hourly feature dataset is empty")
+
+    generated_at = datetime.now(UTC).replace(microsecond=0)
+    forecasts = recursive_forecast(df, model, args.horizon_hours, generated_at)
 
     forecast_df = pd.DataFrame(forecasts)
     output_path.parent.mkdir(parents=True, exist_ok=True)
