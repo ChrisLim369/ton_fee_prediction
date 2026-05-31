@@ -90,6 +90,9 @@ jobs:
             --workchain 0 \
             --stream
 
+      - name: Attach forecast prediction intervals
+        run: python src/forecast_intervals.py
+
       - name: Save raw transaction cache
         uses: actions/cache/save@v4
         if: success() && hashFiles('raw_transactions.csv') != ''
@@ -120,6 +123,7 @@ jobs:
           cp models/best_model.json models/model_metrics.json models/model_comparison.csv models/rolling_backtest.csv docs/data/models/
           cp models/operational_metrics.json docs/data/models/
           cp models/capping_diagnostic.json docs/data/models/
+          cp models/forecast_intervals.json docs/data/models/
 
       - name: Commit refreshed lightweight outputs
         id: commit
@@ -129,6 +133,7 @@ jobs:
           git add -- hourly_features.csv predictions.csv last_updated.json collection_metadata.json
           git add -- forecast_log.csv forecast_accuracy.csv models/operational_metrics.json docs/operational_accuracy.md
           git add -- models/capping_diagnostic.json docs/capping_diagnostic.md
+          git add -- models/forecast_intervals.json docs/forecast_intervals.md
           git add -- docs/figures/*.svg docs/figures/*.png
           git add -- docs/data/
           if git diff --cached --quiet; then

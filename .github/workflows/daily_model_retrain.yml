@@ -103,6 +103,9 @@ jobs:
       - name: Regenerate forecast with retrained model
         run: python src/generate_forecast.py
 
+      - name: Attach forecast prediction intervals
+        run: python src/forecast_intervals.py
+
       - name: Track operational forecast accuracy
         run: python src/track_accuracy.py
 
@@ -126,6 +129,7 @@ jobs:
           cp models/best_model.json models/model_metrics.json models/model_comparison.csv models/rolling_backtest.csv docs/data/models/
           cp models/operational_metrics.json docs/data/models/
           cp models/capping_diagnostic.json docs/data/models/
+          cp models/forecast_intervals.json docs/data/models/
 
       - name: Commit refreshed lightweight model and forecast outputs
         id: commit
@@ -138,6 +142,7 @@ jobs:
           git add -- actual_vs_predicted.csv hourly_features.csv predictions.csv last_updated.json collection_metadata.json
           git add -- forecast_log.csv forecast_accuracy.csv models/operational_metrics.json docs/operational_accuracy.md
           git add -- models/capping_diagnostic.json docs/capping_diagnostic.md
+          git add -- models/forecast_intervals.json docs/forecast_intervals.md
           git add -- docs/model_evaluation_report.md docs/figures/*.svg docs/figures/*.png
           git add -- docs/data/
           if git diff --cached --quiet; then
