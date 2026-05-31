@@ -2,6 +2,8 @@ name: Manual TON Forecast Update
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 15 * * *'   # UTC 15:00 = KST 00:00, daily
 
 permissions:
   contents: write
@@ -104,6 +106,12 @@ jobs:
             exit 1
           fi
 
+      - name: Mirror static data for Cloudflare Pages
+        run: |
+          mkdir -p docs/data/models
+          cp predictions.csv hourly_features.csv last_updated.json collection_metadata.json actual_vs_predicted.csv docs/data/
+          cp models/best_model.json models/model_metrics.json models/model_comparison.csv models/rolling_backtest.csv docs/data/models/
+
       - name: Commit refreshed lightweight outputs
         id: commit
         run: |
@@ -111,6 +119,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- hourly_features.csv predictions.csv last_updated.json collection_metadata.json
           git add -- docs/figures/*.svg docs/figures/*.png
+          git add -- docs/data/
           if git diff --cached --quiet; then
             echo "committed=false" >> "$GITHUB_OUTPUT"
             echo "No lightweight forecast output changes to commit."

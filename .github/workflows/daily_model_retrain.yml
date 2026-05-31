@@ -2,6 +2,8 @@ name: Manual TON Model Retrain
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 16 * * 0'   # UTC Sunday 16:00 = KST Monday 01:00, weekly
 
 permissions:
   contents: write
@@ -110,6 +112,12 @@ jobs:
             exit 1
           fi
 
+      - name: Mirror static data for Cloudflare Pages
+        run: |
+          mkdir -p docs/data/models
+          cp predictions.csv hourly_features.csv last_updated.json collection_metadata.json actual_vs_predicted.csv docs/data/
+          cp models/best_model.json models/model_metrics.json models/model_comparison.csv models/rolling_backtest.csv docs/data/models/
+
       - name: Commit refreshed lightweight model and forecast outputs
         id: commit
         run: |
@@ -120,6 +128,7 @@ jobs:
           git add -- models/rolling_backtest_folds.csv models/model_coefficients.csv models/feature_importance.csv
           git add -- actual_vs_predicted.csv hourly_features.csv predictions.csv last_updated.json collection_metadata.json
           git add -- docs/model_evaluation_report.md docs/figures/*.svg docs/figures/*.png
+          git add -- docs/data/
           if git diff --cached --quiet; then
             echo "committed=false" >> "$GITHUB_OUTPUT"
             echo "No lightweight model or forecast output changes to commit."
