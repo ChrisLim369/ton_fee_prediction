@@ -14,7 +14,7 @@
     "@netlify/functions": "^5.2.0",
     "@types/node": "^22.15.3",
     "typescript": "^5.8.3",
-    "vitest": "^4.1.7",
+    "vitest": "^2.1.9",
     "wrangler": "^4.95.0"
   }
 }
