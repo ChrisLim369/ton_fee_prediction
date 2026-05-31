@@ -20,6 +20,7 @@ def write_evaluation_report(
     summary: dict[str, object],
     comparison: pd.DataFrame,
     rolling_summary: pd.DataFrame | None = None,
+    capped_target_exclusion: dict[str, int] | None = None,
 ) -> None:
     best_r2 = float(summary["best_r2"])
     lines = [
@@ -47,6 +48,18 @@ def write_evaluation_report(
         "```",
         "",
     ]
+    if capped_target_exclusion is not None:
+        lines.extend(
+            [
+                "## Capped Target Exclusion",
+                "",
+                f"- Experimental `--exclude-capped-targets` filter excluded "
+                f"{capped_target_exclusion['excluded_rows']:,} capped-target rows.",
+                f"- Rows before filter: {capped_target_exclusion['before_rows']:,}",
+                f"- Rows after filter: {capped_target_exclusion['after_rows']:,}",
+                "",
+            ]
+        )
     if rolling_summary is not None and not rolling_summary.empty:
         lines.extend(
             [
@@ -64,6 +77,18 @@ def write_evaluation_report(
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def drop_capped_target_rows(hourly_df: pd.DataFrame) -> pd.DataFrame:
+    if "is_capped_hour" not in hourly_df.columns:
+        return hourly_df.copy()
+    data = hourly_df.copy()
+    if "hour" in data.columns:
+        data["_sort_hour"] = pd.to_datetime(data["hour"], utc=True, errors="coerce")
+        data = data.sort_values("_sort_hour").drop(columns=["_sort_hour"]).reset_index(drop=True)
+    capped = pd.to_numeric(data["is_capped_hour"], errors="coerce")
+    target_is_capped = capped.shift(-1)
+    return data[target_is_capped.ne(1)].copy().reset_index(drop=True)
+
+
 def train(args: argparse.Namespace) -> dict[str, object]:
     hourly_path = resolve_path(args.features)
     best_model_path = resolve_path(args.best_model)
@@ -77,6 +102,15 @@ def train(args: argparse.Namespace) -> dict[str, object]:
     report_path = resolve_path(args.report)
 
     hourly_df = pd.read_csv(hourly_path)
+    capped_target_exclusion = None
+    if args.exclude_capped_targets:
+        before_rows = len(hourly_df)
+        hourly_df = drop_capped_target_rows(hourly_df)
+        capped_target_exclusion = {
+            "before_rows": before_rows,
+            "after_rows": len(hourly_df),
+            "excluded_rows": before_rows - len(hourly_df),
+        }
     feature_columns = args.feature_columns or MODEL_FEATURE_COLUMNS
     rolling_summary, rolling_folds = rolling_backtest_model_suite(
         hourly_df=hourly_df,
@@ -116,7 +150,7 @@ def train(args: argparse.Namespace) -> dict[str, object]:
         index=False,
     )
     actual_vs_predicted.to_csv(actual_vs_predicted_path, index=False)
-    write_evaluation_report(report_path, summary, comparison, rolling_summary)
+    write_evaluation_report(report_path, summary, comparison, rolling_summary, capped_target_exclusion)
 
     result = {
         "model": str(best_model_path),
@@ -135,6 +169,8 @@ def train(args: argparse.Namespace) -> dict[str, object]:
         "rolling_folds": int(rolling_summary.iloc[0]["folds"]),
         **summary,
     }
+    if capped_target_exclusion is not None:
+        result["capped_target_exclusion"] = capped_target_exclusion
     return result
 
 
@@ -157,6 +193,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--rolling-step-rows", type=int, default=24)
     parser.add_argument("--rolling-max-folds", type=int, default=8)
     parser.add_argument("--feature-columns", nargs="*", default=None)
+    parser.add_argument("--exclude-capped-targets", action="store_true", default=False)
     return parser
 
 
