@@ -6,7 +6,7 @@
     "lib": ["ES2022"],
     "strict": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["@cloudflare/workers-types"]
   },
-  "include": ["netlify/functions/**/*.mts"]
+  "include": ["functions/**/*.ts", "tests/worker/**/*.ts"]
 }

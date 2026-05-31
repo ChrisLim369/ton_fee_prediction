@@ -1,0 +1,11 @@
+{
+  "model": "models/best_model.json",
+  "best_model_name": "rolling_mean_6h",
+  "best_r2": 0.3661833672501875,
+  "best_mae": 66791.06185663199,
+  "best_rmse": 116844.2998788649,
+  "best_directional_accuracy": 0.6534653465346535,
+  "selected_by": "rolling backtest mean R2 (tie-break median RMSE)",
+  "train_rows": 1208,
+  "test_rows": 303
+}
