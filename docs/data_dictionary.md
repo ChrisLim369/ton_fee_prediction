@@ -97,7 +97,6 @@ All fee and value fields are stored in nanoton unless noted otherwise.
 - `p90_fee_change_3h`: Current p90_total_fee minus p90_total_fee from 3 hourly rows earlier.
 - `p90_fee_change_6h`: Current p90_total_fee minus p90_total_fee from 6 hourly rows earlier.
 - `p90_fee_change_24h`: Current p90_total_fee minus p90_total_fee from 24 hourly rows earlier.
-- `same_hour_prev_day_fee`: avg_total_fee at the timestamp exactly 24 hours earlier.
 - `hour_sin`: Sine encoding of UTC hour of day.
 - `hour_cos`: Cosine encoding of UTC hour of day.
 - `day_sin`: Sine encoding of UTC day of week.
