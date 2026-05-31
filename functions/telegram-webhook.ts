@@ -158,7 +158,7 @@ class Dashboard {
         return `Dashboard data is not available yet: ${error.message}`;
       }
       console.error("Unexpected dashboard error:", error);
-      return "Unexpected dashboard error. Check the Netlify function logs.";
+      return "Unexpected dashboard error. Check the Cloudflare Pages / GitHub Actions logs.";
     }
   }
 
@@ -273,7 +273,7 @@ class Dashboard {
       `Known full raw rows: ${formatCount(metadata.final_rows)}`,
       `Freshness: ${freshness.label}`,
       "",
-      "Telegram handlers are read-only. Data collection, feature refresh, forecasting, charts, and Netlify redeploys run in the scheduled GitHub Actions pipeline.",
+      "Telegram handlers are read-only. Data collection, feature refresh, forecasting, charts, and deploys run in the scheduled GitHub Actions pipeline.",
     ];
     for (const warning of freshness.warnings) {
       lines.push(`Warning: ${warning}`);
@@ -467,7 +467,7 @@ class Dashboard {
     if (relativePath === "docs/figures") {
       return new URL("/figures/", this.requestUrl).toString();
     }
-    const dataPath = relativePath.startsWith("models/") ? `/data/${relativePath}` : `/data/${relativePath}`;
+    const dataPath = `/data/${relativePath}`;
     return new URL(dataPath, this.requestUrl).toString();
   }
 }
