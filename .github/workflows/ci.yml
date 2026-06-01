@@ -29,3 +29,6 @@ jobs:
 
       - name: Test
         run: pytest
+
+      - name: Audit serving artifacts
+        run: python scripts/audit_artifacts.py
