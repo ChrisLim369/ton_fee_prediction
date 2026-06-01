@@ -439,8 +439,11 @@ class Dashboard {
     const metrics = await readJson(new URL("/data/models/operational_metrics.json", this.requestUrl).toString());
     const status = stringValue(metrics.status);
     const reconciledRows = metrics.reconciled_rows;
+    const distinctOrigins = metrics.distinct_origins;
+    const minStableOrigins = metrics.min_stable_origins;
     const pendingRows = metrics.pending_rows;
     const overall = recordValue(metrics.overall);
+    const oneStep = recordValue(metrics.one_step);
     const byHorizon = recordValue(metrics.by_horizon);
 
     const lines = [
@@ -449,15 +452,24 @@ class Dashboard {
       "Measures forecasts after they were published. This is separate from in-sample backtests.",
       `Status: ${status}`,
       `Reconciled rows: ${formatCount(reconciledRows)}`,
+      `Distinct origins: ${formatCount(distinctOrigins)} / ${formatCount(minStableOrigins)}`,
       `Pending rows: ${formatCount(pendingRows)}`,
       `Generated at: ${formatTimestamp(metrics.generated_at_utc)}`,
       "",
     ];
     if (status === "accumulating") {
-      lines.push(`아직 누적 중(reconciled=${formatCount(reconciledRows)}).`, "");
+      lines.push(`아직 누적 중(origins=${formatCount(distinctOrigins)}).`, "");
     }
 
-    lines.push("Overall:", formatOperationalMetric("overall", overall), "", "By horizon:");
+    lines.push(
+      "Overall:",
+      formatOperationalMetric("overall", overall),
+      "",
+      "1-step apples-to-apples:",
+      formatOperationalMetric("horizon=1h", oneStep),
+      "",
+      "By horizon:",
+    );
     const horizonEntries = Object.entries(byHorizon).sort(([left], [right]) => Number(left) - Number(right));
     if (horizonEntries.length === 0) {
       lines.push("n/a");
@@ -946,10 +958,13 @@ function recordValue(value: unknown): JsonObject {
 function formatOperationalMetric(label: string, values: JsonObject): string {
   return [
     `${label}: n=${formatCount(values.n)}`,
+    `origins=${formatCount(values.distinct_origins)}`,
     `MAE=${formatNanoton(values.mae)}`,
     `MAPE=${formatMetric(values.mape, 2)}%`,
     `directional=${formatMetric(values.directional_accuracy, 4)}`,
-    `skill=${formatMetric(values.skill_score, 4)}`,
+    `persistence_skill=${formatMetric(values.skill_score, 4)}`,
+    `seasonal_skill=${formatMetric(values.seasonal_naive_24h_skill_score, 4)}`,
+    `rolling_skill=${formatMetric(values.rolling_mean_6h_skill_score, 4)}`,
   ].join(", ");
 }
 

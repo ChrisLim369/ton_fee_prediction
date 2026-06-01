@@ -41,11 +41,16 @@ ACCURACY_COLUMNS = [
     "last_observed_fee",
     "persistence_pred",
     "persistence_absolute_error",
+    "seasonal_naive_24h_pred",
+    "seasonal_naive_24h_absolute_error",
+    "rolling_mean_6h_pred",
+    "rolling_mean_6h_absolute_error",
     "direction_correct",
     "actual_is_capped",
 ]
 DEDUP_COLUMNS = ["forecast_generated_at", "forecast_hour", "horizon_hours"]
 MIN_STABLE_N = 8
+MIN_STABLE_ORIGINS = 8
 EPSILON = 1e-12
 
 
@@ -137,12 +142,23 @@ def sign(value: float) -> int:
     return 0
 
 
+def rolling_mean_6h_at_origin(hourly: pd.DataFrame, observed_hour: Any) -> float:
+    observed_dt = pd.to_datetime(observed_hour, utc=True, errors="coerce")
+    if pd.isna(observed_dt):
+        return math.nan
+    values = hourly.loc[hourly["hour_dt"] <= observed_dt, "avg_total_fee"].tail(6)
+    if values.empty:
+        return math.nan
+    return float(values.mean())
+
+
 def reconciled_rows(log: pd.DataFrame, hourly: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     if log.empty:
         return pd.DataFrame(columns=ACCURACY_COLUMNS), 0
 
     prepared = log.reindex(columns=LOG_COLUMNS).copy()
     prepared["forecast_hour_dt"] = pd.to_datetime(prepared["forecast_hour"], utc=True, errors="coerce")
+    prepared["last_observed_hour_dt"] = pd.to_datetime(prepared["last_observed_hour"], utc=True, errors="coerce")
     prepared["predicted_avg_total_fee"] = pd.to_numeric(prepared["predicted_avg_total_fee"], errors="coerce")
     prepared["last_observed_fee"] = pd.to_numeric(prepared["last_observed_fee"], errors="coerce")
     actuals = hourly[["hour_dt", "avg_total_fee", "is_capped_hour"]].rename(
@@ -165,6 +181,18 @@ def reconciled_rows(log: pd.DataFrame, hourly: pd.DataFrame) -> tuple[pd.DataFra
     )
     merged["persistence_pred"] = merged["last_observed_fee"]
     merged["persistence_absolute_error"] = (merged["persistence_pred"] - merged["actual_avg_total_fee"]).abs()
+    fee_by_hour = hourly.set_index("hour_dt")["avg_total_fee"].to_dict()
+    seasonal_hours = merged["forecast_hour_dt"] - pd.Timedelta(hours=24)
+    merged["seasonal_naive_24h_pred"] = seasonal_hours.map(lambda value: fee_by_hour.get(value, math.nan))
+    merged["seasonal_naive_24h_absolute_error"] = (
+        merged["seasonal_naive_24h_pred"] - merged["actual_avg_total_fee"]
+    ).abs()
+    merged["rolling_mean_6h_pred"] = merged["last_observed_hour_dt"].map(
+        lambda value: rolling_mean_6h_at_origin(hourly, value)
+    )
+    merged["rolling_mean_6h_absolute_error"] = (
+        merged["rolling_mean_6h_pred"] - merged["actual_avg_total_fee"]
+    ).abs()
     merged["direction_correct"] = merged.apply(
         lambda row: sign(row["predicted_avg_total_fee"] - row["last_observed_fee"])
         == sign(row["actual_avg_total_fee"] - row["last_observed_fee"]),
@@ -182,11 +210,31 @@ def maybe_number(value: float | None) -> float | None:
     return float(value)
 
 
+def baseline_mae_and_skill(
+    rows: pd.DataFrame,
+    error_column: str,
+    stable: bool,
+) -> tuple[int, float | None, float | None]:
+    valid = rows.dropna(subset=["absolute_error", error_column])
+    n = int(len(valid))
+    if n == 0:
+        return 0, None, None
+    model_mae = float(valid["absolute_error"].mean())
+    baseline_mae = float(valid[error_column].mean())
+    skill_score: float | None = None
+    if stable and n >= MIN_STABLE_N and baseline_mae > EPSILON:
+        skill_score = 1 - model_mae / baseline_mae
+    return n, maybe_number(baseline_mae), maybe_number(skill_score)
+
+
 def metric_summary(rows: pd.DataFrame) -> dict[str, Any]:
     n = int(len(rows))
+    distinct_origins = int(rows["forecast_generated_at"].nunique()) if "forecast_generated_at" in rows else 0
+    stable = distinct_origins >= MIN_STABLE_ORIGINS
     if n == 0:
         return {
             "n": 0,
+            "distinct_origins": 0,
             "mae": None,
             "rmse": None,
             "mape": None,
@@ -194,17 +242,33 @@ def metric_summary(rows: pd.DataFrame) -> dict[str, Any]:
             "directional_accuracy": None,
             "persistence_mae": None,
             "skill_score": None,
+            "seasonal_naive_24h_n": 0,
+            "seasonal_naive_24h_mae": None,
+            "seasonal_naive_24h_skill_score": None,
+            "rolling_mean_6h_n": 0,
+            "rolling_mean_6h_mae": None,
+            "rolling_mean_6h_skill_score": None,
         }
 
     mae = float(rows["absolute_error"].mean())
     rmse = float(math.sqrt((rows["error"] ** 2).mean()))
     directional_accuracy = float(rows["direction_correct"].astype(bool).mean())
     persistence_mae = float(rows["persistence_absolute_error"].mean())
+    seasonal_n, seasonal_mae, seasonal_skill = baseline_mae_and_skill(
+        rows,
+        "seasonal_naive_24h_absolute_error",
+        stable,
+    )
+    rolling_n, rolling_mae, rolling_skill = baseline_mae_and_skill(
+        rows,
+        "rolling_mean_6h_absolute_error",
+        stable,
+    )
 
     mape: float | None = None
     r2: float | None = None
     skill_score: float | None = None
-    if n >= MIN_STABLE_N:
+    if stable and n >= MIN_STABLE_N:
         valid_pct = rows["pct_error"].dropna()
         if not valid_pct.empty:
             mape = float(valid_pct.mean())
@@ -218,6 +282,7 @@ def metric_summary(rows: pd.DataFrame) -> dict[str, Any]:
 
     return {
         "n": n,
+        "distinct_origins": distinct_origins,
         "mae": maybe_number(mae),
         "rmse": maybe_number(rmse),
         "mape": maybe_number(mape),
@@ -225,24 +290,40 @@ def metric_summary(rows: pd.DataFrame) -> dict[str, Any]:
         "directional_accuracy": maybe_number(directional_accuracy),
         "persistence_mae": maybe_number(persistence_mae),
         "skill_score": maybe_number(skill_score),
+        "seasonal_naive_24h_n": seasonal_n,
+        "seasonal_naive_24h_mae": seasonal_mae,
+        "seasonal_naive_24h_skill_score": seasonal_skill,
+        "rolling_mean_6h_n": rolling_n,
+        "rolling_mean_6h_mae": rolling_mae,
+        "rolling_mean_6h_skill_score": rolling_skill,
     }
 
 
 def build_metrics(accuracy: pd.DataFrame, pending_rows: int) -> dict[str, Any]:
     reconciled_count = int(len(accuracy))
+    distinct_origins = (
+        int(accuracy["forecast_generated_at"].nunique())
+        if not accuracy.empty and "forecast_generated_at" in accuracy.columns
+        else 0
+    )
+    horizon_numbers = pd.to_numeric(accuracy["horizon_hours"], errors="coerce") if not accuracy.empty else pd.Series()
     by_horizon = {
         str(int(horizon)): metric_summary(group)
-        for horizon, group in accuracy.groupby(pd.to_numeric(accuracy["horizon_hours"], errors="coerce"))
+        for horizon, group in accuracy.groupby(horizon_numbers)
         if not pd.isna(horizon)
     }
+    one_step = accuracy[horizon_numbers == 1] if not accuracy.empty else accuracy
     clean = accuracy[accuracy["actual_is_capped"] == 0] if not accuracy.empty else accuracy
     capped = accuracy[accuracy["actual_is_capped"] == 1] if not accuracy.empty else accuracy
     return {
         "generated_at_utc": utc_now_iso(),
-        "status": "active" if reconciled_count >= MIN_STABLE_N else "accumulating",
+        "status": "active" if distinct_origins >= MIN_STABLE_ORIGINS else "accumulating",
         "reconciled_rows": reconciled_count,
+        "distinct_origins": distinct_origins,
+        "min_stable_origins": MIN_STABLE_ORIGINS,
         "pending_rows": int(pending_rows),
         "overall": metric_summary(accuracy),
+        "one_step": metric_summary(one_step),
         "by_horizon": by_horizon,
         "by_capped": {
             "clean": metric_summary(clean),
@@ -265,11 +346,13 @@ def metric_table(title: str, rows: list[tuple[str, dict[str, Any]]]) -> list[str
     lines = [
         f"## {title}",
         "",
-        "| Segment | n | MAE | RMSE | MAPE | R2 | Directional accuracy | Persistence MAE | Skill score |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| Segment | n | Origins | MAE | RMSE | MAPE | R2 | Directional accuracy | "
+        "Persistence MAE | Persistence skill | Seasonal 24h MAE | Seasonal skill | "
+        "Rolling 6h MAE | Rolling skill |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     if not rows:
-        lines.append("| none | 0 | N/A | N/A | N/A | N/A | N/A | N/A | N/A |")
+        lines.append("| none | 0 | 0 | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A |")
     for label, metrics in rows:
         lines.append(
             "| "
@@ -277,6 +360,7 @@ def metric_table(title: str, rows: list[tuple[str, dict[str, Any]]]) -> list[str
                 [
                     label,
                     format_report_value(metrics.get("n"), 0),
+                    format_report_value(metrics.get("distinct_origins"), 0),
                     format_report_value(metrics.get("mae"), 2),
                     format_report_value(metrics.get("rmse"), 2),
                     format_report_value(metrics.get("mape"), 2),
@@ -284,6 +368,10 @@ def metric_table(title: str, rows: list[tuple[str, dict[str, Any]]]) -> list[str
                     format_report_value(metrics.get("directional_accuracy"), 4),
                     format_report_value(metrics.get("persistence_mae"), 2),
                     format_report_value(metrics.get("skill_score"), 4),
+                    format_report_value(metrics.get("seasonal_naive_24h_mae"), 2),
+                    format_report_value(metrics.get("seasonal_naive_24h_skill_score"), 4),
+                    format_report_value(metrics.get("rolling_mean_6h_mae"), 2),
+                    format_report_value(metrics.get("rolling_mean_6h_skill_score"), 4),
                 ]
             )
             + " |"
@@ -302,6 +390,8 @@ def write_report(path: Path, metrics: dict[str, Any]) -> None:
         f"Generated at: {metrics['generated_at_utc']}",
         f"Status: {status}",
         f"Reconciled rows: {metrics['reconciled_rows']}",
+        f"Distinct forecast origins: {metrics['distinct_origins']}",
+        f"Minimum stable origins: {metrics['min_stable_origins']}",
         f"Pending rows: {metrics['pending_rows']}",
         "",
     ]
@@ -309,11 +399,14 @@ def write_report(path: Path, metrics: dict[str, Any]) -> None:
         lines.extend(
             [
                 f"The live ledger is still accumulating enough realized forecasts for stable metrics "
-                f"(reconciled n={metrics['reconciled_rows']}).",
+                f"(distinct origins={metrics['distinct_origins']}, "
+                f"required={metrics['min_stable_origins']}).",
                 "",
             ]
         )
     lines.extend(metric_table("Overall", [("overall", metrics["overall"])]))
+    lines.extend([""])
+    lines.extend(metric_table("1-Step Apples-To-Apples", [("horizon=1h", metrics["one_step"])]))
     lines.extend([""])
     horizon_rows = sorted(metrics["by_horizon"].items(), key=lambda item: int(item[0]))
     lines.extend(metric_table("By Horizon", [(f"{label}h", value) for label, value in horizon_rows]))
@@ -323,8 +416,10 @@ def write_report(path: Path, metrics: dict[str, Any]) -> None:
     lines.extend(
         [
             "",
-            "Positive skill score means the model beat the persistence baseline anchored at the last observed fee when "
-            "the forecast was issued. `N/A` is used for small samples or zero denominators.",
+            "Persistence skill compares against the last observed fee when the forecast was issued. Seasonal skill "
+            "compares against the actual fee from the same hour 24 hours earlier. Rolling skill compares against "
+            "the 6-hour mean available at the forecast origin. Stable MAPE/R2/skill require enough distinct "
+            "forecast origins; `N/A` is used for small samples or zero denominators.",
             "",
         ]
     )

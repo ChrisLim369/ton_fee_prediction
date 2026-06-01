@@ -695,8 +695,11 @@ class Dashboard:
         metrics = read_json(self.paths.operational_metrics)
         status = str(metrics.get("status", "n/a"))
         reconciled = metrics.get("reconciled_rows")
+        distinct_origins = metrics.get("distinct_origins")
+        min_stable_origins = metrics.get("min_stable_origins")
         pending = metrics.get("pending_rows")
         overall = metrics.get("overall") if isinstance(metrics.get("overall"), dict) else {}
+        one_step = metrics.get("one_step") if isinstance(metrics.get("one_step"), dict) else {}
         by_horizon = metrics.get("by_horizon") if isinstance(metrics.get("by_horizon"), dict) else {}
 
         lines = [
@@ -705,14 +708,25 @@ class Dashboard:
             "Measures forecasts after they were published. This is separate from in-sample backtests.",
             f"Status: {status}",
             f"Reconciled rows: {format_count(reconciled)}",
+            f"Distinct origins: {format_count(distinct_origins)} / {format_count(min_stable_origins)}",
             f"Pending rows: {format_count(pending)}",
             f"Generated at: {format_timestamp(metrics.get('generated_at_utc'))}",
             "",
         ]
         if status == "accumulating":
-            lines.extend([f"아직 누적 중(reconciled={format_count(reconciled)}).", ""])
+            lines.extend([f"아직 누적 중(origins={format_count(distinct_origins)}).", ""])
 
-        lines.extend(["Overall:", format_operational_metric("overall", overall), "", "By horizon:"])
+        lines.extend(
+            [
+                "Overall:",
+                format_operational_metric("overall", overall),
+                "",
+                "1-step apples-to-apples:",
+                format_operational_metric("horizon=1h", one_step),
+                "",
+                "By horizon:",
+            ]
+        )
         if by_horizon:
             for horizon, values in sorted(by_horizon.items(), key=lambda item: to_int(item[0], 0) or 0):
                 label = f"{horizon}h"
@@ -845,10 +859,13 @@ def format_hour(value: Any, context: TimeContext | None = None) -> str:
 def format_operational_metric(label: str, values: dict[str, Any]) -> str:
     return (
         f"{label}: n={format_count(values.get('n'))}, "
+        f"origins={format_count(values.get('distinct_origins'))}, "
         f"MAE={format_nanoton(values.get('mae'))}, "
         f"MAPE={format_metric(values.get('mape'), 2)}%, "
         f"directional={format_metric(values.get('directional_accuracy'), 4)}, "
-        f"skill={format_metric(values.get('skill_score'), 4)}"
+        f"persistence_skill={format_metric(values.get('skill_score'), 4)}, "
+        f"seasonal_skill={format_metric(values.get('seasonal_naive_24h_skill_score'), 4)}, "
+        f"rolling_skill={format_metric(values.get('rolling_mean_6h_skill_score'), 4)}"
     )
 
 

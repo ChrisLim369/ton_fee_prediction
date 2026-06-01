@@ -2,7 +2,7 @@ import json
 
 import pandas as pd
 
-from src.track_accuracy import append_forecast_log, reconcile_and_report
+from src.track_accuracy import LOG_COLUMNS, MIN_STABLE_ORIGINS, append_forecast_log, reconcile_and_report
 
 
 def write_predictions(path) -> None:
@@ -95,6 +95,7 @@ def test_reconcile_calculates_live_errors_pending_rows_and_small_sample_nulls(tm
     assert rows.loc[1, "actual_is_capped"] == 1
     assert metrics["pending_rows"] == 1
     assert metrics["reconciled_rows"] == 2
+    assert metrics["distinct_origins"] == 1
     assert metrics["status"] == "accumulating"
     assert metrics["overall"]["mape"] is None
     assert metrics["overall"]["r2"] is None
@@ -103,6 +104,104 @@ def test_reconcile_calculates_live_errors_pending_rows_and_small_sample_nulls(tm
     assert metrics["by_capped"]["capped"]["n"] == 1
     assert json.loads(metrics_path.read_text(encoding="utf-8"))["status"] == "accumulating"
     assert "in-sample backtests" in report.read_text(encoding="utf-8")
+
+
+def test_reconcile_calculates_seasonal_naive_24h_baseline_and_skill(tmp_path) -> None:
+    hourly = tmp_path / "hourly_features.csv"
+    log = tmp_path / "forecast_log.csv"
+    accuracy = tmp_path / "forecast_accuracy.csv"
+    metrics_path = tmp_path / "models" / "operational_metrics.json"
+    report = tmp_path / "docs" / "operational_accuracy.md"
+
+    log_rows = []
+    hourly_rows = []
+    for index in range(MIN_STABLE_ORIGINS):
+        generated_at = pd.Timestamp("2026-01-03T00:30:00Z") + pd.Timedelta(hours=index)
+        last_observed_hour = generated_at.floor("h")
+        forecast_hour = last_observed_hour + pd.Timedelta(hours=1)
+        seasonal_hour = forecast_hour - pd.Timedelta(hours=24)
+        log_rows.append(
+            {
+                "forecast_generated_at": generated_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "forecast_hour": forecast_hour.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "horizon_hours": 1,
+                "predicted_avg_total_fee": 90.0,
+                "predicted_avg_total_fee_ton": 0.000000090,
+                "model_name": "test_model",
+                "model_trained_at_utc": "2026-01-02T00:00:00Z",
+                "last_observed_hour": last_observed_hour.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "last_observed_fee": 95.0,
+            }
+        )
+        hourly_rows.extend(
+            [
+                {
+                    "hour": seasonal_hour.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "avg_total_fee": 80.0,
+                    "is_capped_hour": 0,
+                },
+                {
+                    "hour": last_observed_hour.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "avg_total_fee": 95.0,
+                    "is_capped_hour": 0,
+                },
+                {
+                    "hour": forecast_hour.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "avg_total_fee": 100.0,
+                    "is_capped_hour": 0,
+                },
+            ]
+        )
+
+    pd.DataFrame(log_rows).reindex(columns=LOG_COLUMNS).to_csv(log, index=False)
+    pd.DataFrame(hourly_rows).drop_duplicates(subset=["hour"]).to_csv(hourly, index=False)
+
+    metrics = reconcile_and_report(log, hourly, accuracy, metrics_path, report)
+
+    rows = pd.read_csv(accuracy)
+    assert set(rows["seasonal_naive_24h_pred"]) == {80.0}
+    assert set(rows["seasonal_naive_24h_absolute_error"]) == {20.0}
+    assert metrics["status"] == "active"
+    assert metrics["overall"]["seasonal_naive_24h_mae"] == 20.0
+    assert metrics["overall"]["seasonal_naive_24h_skill_score"] == 0.5
+    assert "Seasonal 24h MAE" in report.read_text(encoding="utf-8")
+
+
+def test_distinct_origins_counts_multiple_horizons_from_same_origin_as_one(tmp_path) -> None:
+    predictions = tmp_path / "predictions.csv"
+    hourly = tmp_path / "hourly_features.csv"
+    log = tmp_path / "forecast_log.csv"
+    accuracy = tmp_path / "forecast_accuracy.csv"
+    metrics_path = tmp_path / "models" / "operational_metrics.json"
+    report = tmp_path / "docs" / "operational_accuracy.md"
+    write_predictions(predictions)
+    write_hourly(hourly, include_actuals=False)
+    append_forecast_log(predictions, hourly, log)
+    write_hourly(hourly, include_actuals=True)
+
+    metrics = reconcile_and_report(log, hourly, accuracy, metrics_path, report)
+
+    assert metrics["distinct_origins"] == 1
+    assert metrics["overall"]["distinct_origins"] == 1
+    assert metrics["by_horizon"]["1"]["distinct_origins"] == 1
+
+
+def test_status_accumulates_until_minimum_distinct_origins(tmp_path) -> None:
+    predictions = tmp_path / "predictions.csv"
+    hourly = tmp_path / "hourly_features.csv"
+    log = tmp_path / "forecast_log.csv"
+    accuracy = tmp_path / "forecast_accuracy.csv"
+    metrics_path = tmp_path / "models" / "operational_metrics.json"
+    report = tmp_path / "docs" / "operational_accuracy.md"
+    write_predictions(predictions)
+    write_hourly(hourly, include_actuals=False)
+    append_forecast_log(predictions, hourly, log)
+    write_hourly(hourly, include_actuals=True)
+
+    metrics = reconcile_and_report(log, hourly, accuracy, metrics_path, report)
+
+    assert metrics["distinct_origins"] < metrics["min_stable_origins"]
+    assert metrics["status"] == "accumulating"
 
 
 def test_track_accuracy_does_not_seed_from_backtest_files(tmp_path, monkeypatch) -> None:

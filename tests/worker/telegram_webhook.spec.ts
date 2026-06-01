@@ -30,9 +30,12 @@ function operationalMetrics(status = "active") {
     generated_at_utc: generatedAt,
     status,
     reconciled_rows: status === "active" ? 12 : 0,
+    distinct_origins: status === "active" ? 8 : 1,
+    min_stable_origins: 8,
     pending_rows: status === "active" ? 3 : 24,
     overall: {
       n: status === "active" ? 12 : 0,
+      distinct_origins: status === "active" ? 8 : 1,
       mae: status === "active" ? 1000 : null,
       rmse: status === "active" ? 1200 : null,
       mape: status === "active" ? 10 : null,
@@ -40,10 +43,30 @@ function operationalMetrics(status = "active") {
       directional_accuracy: status === "active" ? 0.75 : null,
       persistence_mae: status === "active" ? 1500 : null,
       skill_score: status === "active" ? 0.3333 : null,
+      seasonal_naive_24h_mae: status === "active" ? 2000 : null,
+      seasonal_naive_24h_skill_score: status === "active" ? 0.5 : null,
+      rolling_mean_6h_mae: status === "active" ? 1800 : null,
+      rolling_mean_6h_skill_score: status === "active" ? 0.4444 : null,
+    },
+    one_step: {
+      n: status === "active" ? 8 : 0,
+      distinct_origins: status === "active" ? 8 : 1,
+      mae: status === "active" ? 900 : null,
+      rmse: status === "active" ? 1100 : null,
+      mape: status === "active" ? 9 : null,
+      r2: null,
+      directional_accuracy: status === "active" ? 0.75 : null,
+      persistence_mae: status === "active" ? 1500 : null,
+      skill_score: status === "active" ? 0.4 : null,
+      seasonal_naive_24h_mae: status === "active" ? 1800 : null,
+      seasonal_naive_24h_skill_score: status === "active" ? 0.5 : null,
+      rolling_mean_6h_mae: status === "active" ? 1600 : null,
+      rolling_mean_6h_skill_score: status === "active" ? 0.4375 : null,
     },
     by_horizon: {
       "1": {
         n: status === "active" ? 12 : 0,
+        distinct_origins: status === "active" ? 8 : 1,
         mae: status === "active" ? 1000 : null,
         rmse: status === "active" ? 1200 : null,
         mape: status === "active" ? 10 : null,
@@ -51,6 +74,10 @@ function operationalMetrics(status = "active") {
         directional_accuracy: status === "active" ? 0.75 : null,
         persistence_mae: status === "active" ? 1500 : null,
         skill_score: status === "active" ? 0.3333 : null,
+        seasonal_naive_24h_mae: status === "active" ? 2000 : null,
+        seasonal_naive_24h_skill_score: status === "active" ? 0.5 : null,
+        rolling_mean_6h_mae: status === "active" ? 1800 : null,
+        rolling_mean_6h_skill_score: status === "active" ? 0.4444 : null,
       },
     },
     by_capped: { clean: { n: 0 }, capped: { n: 0 } },
@@ -157,6 +184,8 @@ describe("Cloudflare Telegram webhook", () => {
     expect(response.status).toBe(200);
     expect(sentTexts.join("\n")).toContain("Operational (live) Accuracy");
     expect(sentTexts.join("\n")).toContain("Status: active");
+    expect(sentTexts.join("\n")).toContain("Distinct origins: 8 / 8");
+    expect(sentTexts.join("\n")).toContain("seasonal_skill=0.5000");
   });
 
   it("shows accumulating status for /accuracy", async () => {
