@@ -244,8 +244,8 @@ def stream_update(args: argparse.Namespace) -> dict[str, Any]:
             "capped_hours_utc": sorted(capped_hours),
             "note": (
                 "Streaming mode rewrites a de-duplicated raw CSV through a temp file. "
-                "If windows_with_limit_hits is greater than zero, increase "
-                "--max-pages-per-window for fuller hourly coverage."
+                "Collection is uncapped for normal hourly volume by raising --max-pages-cap. "
+                "If windows_with_limit_hits remains high, increase --max-pages-cap for fuller hourly coverage."
             ),
         }
         save_last_updated(last_updated_path, status)
@@ -404,9 +404,9 @@ def update(args: argparse.Namespace) -> dict[str, Any]:
             "workchain": args.workchain,
             "capped_hours_utc": sorted(capped_hours),
             "note": (
-                "If windows_with_limit_hits is greater than zero, the update may be a "
-                "sample of a high-volume hour. Increase --max-pages-per-window and use "
-                "TONCENTER_API_KEY for fuller coverage."
+                "Collection is uncapped for normal hourly volume by raising --max-pages-cap. "
+                "If windows_with_limit_hits remains high, increase --max-pages-cap and use TONCENTER_API_KEY "
+                "for fuller hourly coverage."
             ),
         }
         save_last_updated(last_updated_path, status)

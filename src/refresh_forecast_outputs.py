@@ -196,7 +196,8 @@ def update_metadata(
         "note": (
             "Automated refresh updated the available raw transaction state, merged refreshed hourly "
             "aggregates into hourly_features.csv history, and regenerated predictions.csv. "
-            "Transaction count features remain sampled when TON Center page limits are reached."
+            "Collection is uncapped for normal hourly volume by raising --max-pages-cap for full-hour fidelity. "
+            "If capped hours remain frequent, increase --max-pages-cap further."
         ),
     }
     if health_status == "degraded":

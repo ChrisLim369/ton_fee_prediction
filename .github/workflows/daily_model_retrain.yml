@@ -86,7 +86,9 @@ jobs:
             --preserve-raw \
             --bootstrap-days 3 \
             --limit 1000 \
-            --max-pages-per-window 1 \
+            --max-pages-per-window 50 \
+            --max-pages-cap 50 \
+            --sleep 0.15 \
             --workchain 0 \
             --stream
 
