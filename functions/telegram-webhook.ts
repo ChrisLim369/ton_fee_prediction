@@ -202,6 +202,7 @@ class Dashboard {
       `Latest raw transaction timestamp: ${formatTimestamp(metadata.latest_iso_utc, timeContext)}`,
       `Latest feature timestamp: ${formatTimestamp(hourly.last.hour, timeContext)}`,
       `Best model: ${stringValue(metrics.best_model_name)}`,
+      `Selected by: ${stringValue(metrics.selected_by)}`,
       `Holdout R2: ${formatMetric(metrics.best_r2)}`,
       `Holdout MAE: ${formatNanoton(metrics.best_mae)}`,
       `Forecast rows: ${formatCount(predictions.rows)}`,
@@ -355,13 +356,14 @@ class Dashboard {
       "Best Model",
       "",
       `Model: ${stringValue(metrics.best_model_name)}`,
-      `R2: ${formatMetric(r2)}`,
-      `MAE: ${formatNanoton(mae)}`,
-      `RMSE: ${formatNanoton(rmse)}`,
+      `Selected by: ${stringValue(metrics.selected_by)}`,
+      `Holdout R2: ${formatMetric(r2)}`,
+      `Holdout MAE: ${formatNanoton(mae)}`,
+      `Holdout RMSE: ${formatNanoton(rmse)}`,
       "",
-      `R2: the model explains about ${percentFromR2(r2)} of the variation in next-hour average fees. Fee movement remains noisy and difficult to predict when this value is low or negative.`,
-      `MAE: on average, the prediction is off by about ${formatNanoton(mae)}. This is usually the most practical error number for reading the dashboard.`,
-      `RMSE: ${formatNanoton(rmse)}. RMSE penalizes large misses more than MAE, so it rises when the model has occasional large errors.`,
+      `Holdout R2: the model explains about ${percentFromR2(r2)} of the variation in next-hour average fees on the saved holdout split. Fee movement remains noisy and difficult to predict when this value is low or negative.`,
+      `Holdout MAE: on average, the holdout prediction is off by about ${formatNanoton(mae)}. This is usually the most practical error number for reading the dashboard.`,
+      `Holdout RMSE: ${formatNanoton(rmse)}. RMSE penalizes large misses more than MAE, so it rises when the model has occasional large errors.`,
     ].join("\n");
   }
 
@@ -371,6 +373,7 @@ class Dashboard {
       throw new DashboardError("models/model_comparison.csv has no rows.");
     }
 
+    const metrics = await readJsonOptional(this.path("models/model_metrics.json"));
     const lines = ["Model Comparison", "", "Top chronological holdout models by R2:", ""];
     rows.slice(0, 6).forEach((row, index) => {
       lines.push(
@@ -381,8 +384,9 @@ class Dashboard {
     });
     lines.push(
       "",
-      `Selected model: ${stringValue(rows[0].model_name)}. It is selected because it has the best chronological holdout R2 in the saved comparison while keeping MAE/RMSE competitive.`,
-      "Interpretation: the nonlinear boosted model performs better than linear alternatives, but the R2 is still modest, so it should be used as a directional forecasting tool.",
+      `Selected model: ${stringValue(metrics.best_model_name)}`,
+      `Selected by: ${stringValue(metrics.selected_by)}`,
+      "Interpretation: holdout R2 ranks are shown for context; the saved selected model follows the selection rule recorded above.",
     );
     return lines.join("\n");
   }

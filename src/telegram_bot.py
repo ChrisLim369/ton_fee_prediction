@@ -466,6 +466,7 @@ class Dashboard:
             f"Latest raw transaction timestamp: {format_timestamp_for_timezone(latest_raw, time_context)}",
             f"Latest feature timestamp: {format_timestamp_for_timezone(latest_feature_hour, time_context)}",
             f"Best model: {metrics.get('best_model_name', 'n/a')}",
+            f"Selected by: {metrics.get('selected_by', 'n/a')}",
             f"Holdout R2: {format_metric(metrics.get('best_r2'))}",
             f"Holdout MAE: {format_nanoton(metrics.get('best_mae'))}",
             f"Forecast rows: {format_count(predictions['rows'])}",
@@ -598,16 +599,18 @@ class Dashboard:
             "Best Model",
             "",
             f"Model: {metrics.get('best_model_name', 'n/a')}",
-            f"R2: {format_metric(r2)}",
-            f"MAE: {format_nanoton(mae)}",
-            f"RMSE: {format_nanoton(rmse)}",
+            f"Selected by: {metrics.get('selected_by', 'n/a')}",
+            f"Holdout R2: {format_metric(r2)}",
+            f"Holdout MAE: {format_nanoton(mae)}",
+            f"Holdout RMSE: {format_nanoton(rmse)}",
             "",
-            f"R2: the model explains about {percent_from_r2(r2)} of the variation in next-hour average fees. "
-            "Fee movement remains noisy and difficult to predict when this value is low or negative.",
-            f"MAE: on average, the prediction is off by about {format_nanoton(mae)}. This is usually the most "
-            "practical error number for reading the dashboard.",
-            f"RMSE: {format_nanoton(rmse)}. RMSE penalizes large misses more than MAE, so it rises when the model "
-            "has occasional large errors.",
+            f"Holdout R2: the model explains about {percent_from_r2(r2)} of the variation in next-hour average fees "
+            "on the saved holdout split. Fee movement remains noisy and difficult to predict when this value is low "
+            "or negative.",
+            f"Holdout MAE: on average, the holdout prediction is off by about {format_nanoton(mae)}. This is usually "
+            "the most practical error number for reading the dashboard.",
+            f"Holdout RMSE: {format_nanoton(rmse)}. RMSE penalizes large misses more than MAE, so it rises when the "
+            "model has occasional large errors.",
         ]
         return "\n".join(lines)
 
@@ -616,7 +619,7 @@ class Dashboard:
         if not rows:
             raise DashboardError("models/model_comparison.csv has no rows.")
 
-        selected = rows[0]
+        metrics = self._safe_json(self.paths.model_metrics)
         lines = [
             "Model Comparison",
             "",
@@ -634,10 +637,10 @@ class Dashboard:
         lines.extend(
             [
                 "",
-                f"Selected model: {selected.get('model_name', 'n/a')}. It is selected because it has the best "
-                "chronological holdout R2 in the saved comparison while keeping MAE/RMSE competitive.",
-                "Interpretation: the nonlinear boosted model performs better than linear alternatives, but the "
-                "R2 is still modest, so it should be used as a directional forecasting tool.",
+                f"Selected model: {metrics.get('best_model_name', 'n/a')}",
+                f"Selected by: {metrics.get('selected_by', 'n/a')}",
+                "Interpretation: holdout R2 ranks are shown for context; the saved selected model follows the "
+                "selection rule recorded above.",
             ]
         )
         return "\n".join(lines)
