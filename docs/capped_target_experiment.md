@@ -13,6 +13,14 @@ This measurement runs `src/train_model.py` twice against committed `hourly_featu
 
 `--exclude-capped-targets` drops rows before the chronological split, so the two runs do not use identical test sets. Cross-run absolute MAE is therefore not a clean apples-to-apples measure. Interpret the result by checking whether the selected model changes, whether each run's selected model has positive `skill_vs_persistence`, and the direction and rough size of rolling mean MAE.
 
+## Interpretation
+
+The -38% rolling MAE and -48% holdout MAE drops are primarily composition artifacts, not direct accuracy gains: the excluded run removes 833 of 1532 rows (54%) from both train and test, including high-variance capped hours. Absolute MAE and R2 are therefore not comparable across runs, and the holdout R2 change should not be used as evidence.
+
+The apples-to-apples signal is `skill_vs_persistence` within the same rolling folds: 0.000 to +0.081. That is a modest clean-only flip where ridge beats persistence by about 8%, with rolling mean R2 around +0.013, consistent with a random-walk ceiling.
+
+Caveat: `--exclude-capped-targets` removes the recent capped block from 2026-05-26 onward, so the +8% edge is measured on the older clean regime from late April through late May. Transfer to current capped-including forecast hours is still unverified.
+
 ## Data-Driven Recommendation
 
 Rule: if exclusion changes selection from a naive model to a feature model, gives the excluded selected model positive skill versus persistence, or improves selected rolling mean MAE by about 5% or more, treat exclusion as useful. Otherwise treat the effect as minimal and avoid API recollection.
@@ -25,4 +33,4 @@ Rule: if exclusion changes selection from a naive model to a feature model, give
 
 ## Conclusion
 
-HELPFUL: baseline selected `persistence` with skill_vs_persistence 0.000000; excluded selected `ridge_alpha_100_log1p_target` with skill_vs_persistence 0.080763 after excluding 833 capped-target rows.
+MODEST SKILL FLIP: baseline selected `persistence` with skill_vs_persistence 0.000000; excluded selected `ridge_alpha_100_log1p_target` with skill_vs_persistence 0.080763 after excluding 833 capped-target rows. The large MAE drop is a row-composition effect, not a direct accuracy improvement. API recollection remains unnecessary; replace persistence only after horizon-aware validation confirms recursive or multi-horizon advantage and recent-regime transfer.
