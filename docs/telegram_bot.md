@@ -1,19 +1,19 @@
 # Telegram Bot Dashboard
 
-The project supports two Telegram bot runtimes:
+The project supports one hosted Telegram webhook and one local diagnostic runtime:
 
-- `src/telegram_bot.py`: local long-polling bot for running on your Mac or another always-on machine.
-- `netlify/functions/telegram-webhook.mts`: Netlify webhook bot for 24-hour hosted operation.
+- `functions/telegram-webhook.ts`: Cloudflare Pages Function and the single source for hosted Telegram webhooks.
+- `src/telegram_bot.py`: local long-polling bot for local testing and diagnostics.
 
 Both runtimes are read-only dashboards for the TON fee prediction project. They explain the project, show the latest saved forecast, summarize model performance, and describe data quality limitations.
 
 The bot reads existing project outputs only. It does not collect data, rebuild features, retrain models, regenerate forecasts, or write any project files.
 
-Forecast refreshes happen outside Telegram through GitHub Actions. See `docs/automation_forecast_refresh.md` for the hourly forecast update, daily retraining, and Netlify redeploy flow.
+Forecast refreshes happen outside Telegram through GitHub Actions. See `docs/automation_forecast_refresh.md` for the hourly forecast update, daily retraining, and Cloudflare Pages deployment flow.
 
 ## Required Files
 
-The dashboard commands read these files. `netlify.toml` includes them in the Netlify Function bundle:
+The dashboard commands read deployed files. GitHub Actions mirrors these outputs into `docs/data/`, and Cloudflare Pages serves them statically:
 
 ```text
 predictions.csv
@@ -42,58 +42,61 @@ python3 src/telegram_bot.py
 
 The script refuses to start when `TELEGRAM_BOT_TOKEN` is not set.
 
-## Run On Netlify
+## Run On Cloudflare Pages
 
-The Netlify version uses Telegram webhooks, so the bot does not need a terminal process running on your Mac.
+The Cloudflare Pages version uses Telegram webhooks, so the bot does not need a terminal process running on your Mac.
 
 ### 1. Deploy The Site
 
-Create or link a Netlify project from this repository. The project already includes:
+Create or link a Cloudflare Pages project from this repository. Use these build settings:
 
 ```text
-netlify.toml
-netlify/functions/telegram-webhook.mts
+Framework: None
+Build command: none
+Output directory: docs
+```
+
+The repository already includes:
+
+```text
+functions/telegram-webhook.ts
+wrangler.jsonc
+tsconfig.worker.json
 package.json
-tsconfig.json
 ```
 
-Netlify should build the function and expose it at:
+Cloudflare Pages exposes the webhook at:
 
 ```text
-https://YOUR-NETLIFY-SITE.netlify.app/telegram-webhook
+https://<project>.pages.dev/telegram-webhook
 ```
 
-### 2. Add Netlify Environment Variables
+`GET /telegram-webhook` returns health-check JSON.
 
-In Netlify, set:
+### 2. Add Cloudflare Pages Environment Variables
+
+In Cloudflare Pages > Settings > Variables and Secrets, set encrypted variables:
 
 ```text
 TELEGRAM_BOT_TOKEN=your_botfather_token
-```
-
-Optional but recommended:
-
-```text
 TELEGRAM_WEBHOOK_SECRET=a_long_random_secret
 ```
 
-The function validates `TELEGRAM_WEBHOOK_SECRET` against Telegram's `X-Telegram-Bot-Api-Secret-Token` header when the variable is configured.
+The function validates `TELEGRAM_WEBHOOK_SECRET` against Telegram's `X-Telegram-Bot-Api-Secret-Token` header.
 
 ### 3. Register The Telegram Webhook
 
-After the Netlify deploy is live, register the webhook:
+After the Cloudflare Pages deploy is live, register the webhook:
 
 ```bash
 export TELEGRAM_BOT_TOKEN="your_token_here"
 export TELEGRAM_WEBHOOK_SECRET="a_long_random_secret"
-export NETLIFY_BOT_URL="https://YOUR-NETLIFY-SITE.netlify.app/telegram-webhook"
+export CLOUDFLARE_BOT_URL="https://<project>.pages.dev/telegram-webhook"
 
 curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
-  -d "url=${NETLIFY_BOT_URL}" \
+  -d "url=${CLOUDFLARE_BOT_URL}" \
   -d "secret_token=${TELEGRAM_WEBHOOK_SECRET}"
 ```
-
-If you do not configure `TELEGRAM_WEBHOOK_SECRET`, omit the `secret_token` line.
 
 Check the registered webhook:
 
@@ -112,7 +115,7 @@ Open your Telegram bot username and send:
 /timezone
 ```
 
-The same Telegram bot token should not be used by both the local polling script and the Netlify webhook at the same time. For hosted operation, stop the local polling process after registering the webhook.
+The hosted webhook source is `functions/telegram-webhook.ts`. Do not run `src/telegram_bot.py` polling with the same Telegram bot token while the Cloudflare webhook is active.
 
 ## Local Validation
 
@@ -126,11 +129,11 @@ python3 src/telegram_bot.py --validate
 
 `--validate` does not require `TELEGRAM_BOT_TOKEN`.
 
-Validate the Netlify TypeScript function:
+Validate the Cloudflare Pages Function:
 
 ```bash
 npm install
-npm run check:netlify
+npm run check:worker
 ```
 
 ## Commands
@@ -161,15 +164,15 @@ Use `/timezone` to see the current detected timezone and override examples. Stor
 
 Runtime code:
 
-- `src/telegram_bot.py`: local long-polling Telegram bot. Use this for local testing or for a Mac/VPS process that stays running.
-- `netlify/functions/telegram-webhook.mts`: Netlify-hosted Telegram webhook. Use this for 24-hour operation without keeping a local terminal open.
+- `functions/telegram-webhook.ts`: Cloudflare Pages Function and the single hosted webhook source.
+- `src/telegram_bot.py`: local long-polling Telegram bot for local testing and diagnostics.
 
-Netlify deployment:
+Cloudflare Pages deployment:
 
-- `netlify.toml`: publishes `docs/` as the static directory and includes the dashboard CSV/JSON/chart artifacts in the function bundle. It intentionally does not include `raw_transactions.csv`.
-- `package.json`: Node project metadata and `npm run check:netlify` validation command.
-- `package-lock.json`: locked Node dependency versions for reproducible Netlify function validation.
-- `tsconfig.json`: TypeScript compiler settings for the Netlify function.
+- `wrangler.jsonc`: Cloudflare Pages config; static output directory is `docs`.
+- `package.json`: Node project metadata and `npm run check:worker` validation command.
+- `package-lock.json`: locked Node dependency versions for reproducible worker validation.
+- `tsconfig.worker.json`: TypeScript compiler settings for `functions/**` and worker tests.
 
 Dashboard inputs:
 
@@ -229,6 +232,6 @@ These commands remain available for project owner/debugging use, but they are hi
 ## Security Notes
 
 - The bot token is read only from `TELEGRAM_BOT_TOKEN`.
-- The local script and Netlify function do not print the token.
+- The local script and Cloudflare Pages Function do not print the token.
 - Do not commit `.env` files or shell history containing the token.
 - Do not upload `raw_transactions.csv` to GitHub.

@@ -6,7 +6,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Deployed on Netlify](https://img.shields.io/badge/deployed-Netlify-00C7B7)](https://ton-fee-forecast.netlify.app)
+[![Deployed on Cloudflare Pages](https://img.shields.io/badge/deployed-Cloudflare%20Pages-F38020)](https://pages.cloudflare.com/)
 [![Telegram Bot](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram)](https://t.me/ton_fee_forecast_bot)
 
 <!-- TODO: docs/figures/forecast_next_24h.png 같은 대표 차트를 여기에 표시 -->
@@ -25,7 +25,7 @@ The project pulls raw transaction data from the **TON Center API v3**, aggregate
 - **Data**: TON mainnet transactions via TON Center API v3
 - **Models compared**: linear regression (raw / `log1p`), ridge regression (raw / `log1p`, multiple alphas), gradient-boosted trees
 - **Selection**: chronological holdout + expanding-window rolling backtest
-- **Serving**: Telegram bot in webhook mode on Netlify Functions (free tier)
+- **Serving**: Telegram bot in webhook mode on Cloudflare Pages Functions
 
 ## Features
 
@@ -35,8 +35,8 @@ The project pulls raw transaction data from the **TON Center API v3**, aggregate
 - Persisted best model artifact (`models/best_model.json`) consumed by the forecaster
 - 24-hour forecast with diagnostic SVG/PNG visualizations
 - Telegram bot with `/forecast`, `/besttime`, `/timezone` commands and per-request timezone override
-- Two deployment modes: local Python polling **or** Netlify webhook function
-- GitHub Actions workflows for hourly refresh and daily retraining (manual triggers)
+- Two deployment modes: Cloudflare Pages webhook function **or** local Python polling for diagnostics
+- GitHub Actions workflows for hourly refresh and daily retraining
 
 ## Tech Stack
 
@@ -44,8 +44,8 @@ The project pulls raw transaction data from the **TON Center API v3**, aggregate
 |-------|-------|
 | Data | TON Center API v3, pandas, NumPy |
 | Modeling | scikit-learn-style ridge / linear / GBDT (vanilla Python, no sklearn dep) |
-| Bot | Telegraf-style Python webhook; long polling for local dev |
-| Hosting | Netlify Functions (TypeScript wrapper), GitHub Actions |
+| Bot | Cloudflare Pages Function webhook; Python long polling for local diagnostics |
+| Hosting | Cloudflare Pages, GitHub Actions |
 | Charts | matplotlib-style SVG/PNG diagnostics |
 
 ## Quick Start
@@ -88,8 +88,8 @@ ton_fee_prediction/
 │   ├── refresh_forecast_outputs.py # CI-safe full refresh
 │   ├── telegram_bot.py            # Local polling bot
 │   └── ton_pipeline.py            # Shared utilities
-├── netlify/functions/
-│   └── telegram-webhook.mts # Netlify webhook bot
+├── functions/
+│   └── telegram-webhook.ts  # Cloudflare Pages webhook bot
 ├── .github/workflows/
 │   ├── hourly_forecast_update.yml
 │   └── daily_model_retrain.yml
@@ -97,7 +97,7 @@ ton_fee_prediction/
 ├── docs/                    # Guides, data dictionary, figures
 ├── hourly_features.csv      # Committed lightweight history
 ├── predictions.csv          # Next-24h forecast
-└── netlify.toml             # Netlify build/function config
+└── wrangler.jsonc           # Cloudflare Pages config
 ```
 
 ## Architecture
@@ -118,16 +118,18 @@ train_model.py ──► models/best_model.json + comparison/backtest CSVs
 generate_forecast.py ──► predictions.csv + docs/figures/*.png
        │
        ▼
-Telegram bot (webhook on Netlify or local polling)
+Telegram bot (Cloudflare Pages webhook or local polling)
 ```
+
+Webhook single source: `functions/telegram-webhook.ts` is the Cloudflare Pages Function for hosted Telegram webhooks; `src/telegram_bot.py` is local polling/diagnostics only.
 
 ## Configuration
 
 | Variable | Purpose | Where to set |
 |----------|---------|--------------|
 | `TONCENTER_API_KEY` | Raises TON Center rate limit | Shell / GitHub Actions secrets |
-| `TELEGRAM_BOT_TOKEN` | Bot auth | Local shell or Netlify env |
-| `TELEGRAM_WEBHOOK_SECRET` | Optional webhook signature check | Netlify env |
+| `TELEGRAM_BOT_TOKEN` | Bot auth | Local shell or Cloudflare Pages env |
+| `TELEGRAM_WEBHOOK_SECRET` | Telegram webhook secret token | Cloudflare Pages env |
 
 ## Telegram Bot
 
@@ -147,20 +149,39 @@ export TELEGRAM_BOT_TOKEN="your_token_here"
 python3 src/telegram_bot.py
 ```
 
-### Deploy as a webhook (Netlify)
+### Deploy as a webhook (Cloudflare Pages)
+
+Use Cloudflare Pages with framework set to `None`, no build command, and output directory `docs` as configured in `wrangler.jsonc`. GitHub Actions mirrors refreshed outputs into `docs/data/`; pushes to `main` trigger the Pages deployment.
+
+Set encrypted Cloudflare Pages variables:
+
+```text
+TELEGRAM_BOT_TOKEN
+TELEGRAM_WEBHOOK_SECRET
+```
+
+The webhook URL is:
+
+```text
+https://<project>.pages.dev/telegram-webhook
+```
+
+Register it with Telegram using `TELEGRAM_WEBHOOK_SECRET` as `secret_token`:
 
 ```bash
-npm install
-netlify deploy --prod
-# Then register the webhook with Telegram setWebhook API
+curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
+  -d "url=https://<project>.pages.dev/telegram-webhook" \
+  -d "secret_token=${TELEGRAM_WEBHOOK_SECRET}"
 ```
+
+`GET /telegram-webhook` returns health-check JSON.
 
 Validate without starting polling:
 
 ```bash
 python3 -m py_compile src/telegram_bot.py
 python3 src/telegram_bot.py --validate
-npm run check:netlify
+npm run check:worker
 ```
 
 See [`docs/telegram_bot.md`](docs/telegram_bot.md) for the full operational guide.
@@ -173,14 +194,14 @@ See [`docs/telegram_bot.md`](docs/telegram_bot.md) for the full operational guid
 0 * * * * python /path/to/project/src/update_data.py
 ```
 
-### GitHub Actions (manual triggers by default)
+### GitHub Actions
 
 - [`.github/workflows/hourly_forecast_update.yml`](.github/workflows/hourly_forecast_update.yml) — refresh recent data, features, predictions, charts
 - [`.github/workflows/daily_model_retrain.yml`](.github/workflows/daily_model_retrain.yml) — refresh data, retrain model suite, regenerate forecasts
 
 Both rely on `src/refresh_forecast_outputs.py`, which restores the gitignored `raw_transactions.csv` from Actions cache, updates incrementally, merges aggregates into the committed `hourly_features.csv`, and **never commits the raw CSV**.
 
-> Workflows are intentionally manual: Netlify Free credit limits can pause every site on the same team if scheduled hourly redeploys run unattended.
+Main pushes trigger Cloudflare Pages redeploys automatically. Heavy refresh, training, and chart generation stay in GitHub Actions.
 
 See [`docs/automation.md`](docs/automation.md) and [`docs/automation_forecast_refresh.md`](docs/automation_forecast_refresh.md).
 
@@ -192,7 +213,7 @@ See [`docs/automation.md`](docs/automation.md) and [`docs/automation_forecast_re
 - [`docs/model_evaluation_report.md`](docs/model_evaluation_report.md) — model performance summary
 - [`docs/visualizations.md`](docs/visualizations.md) — generated SVG charts
 - [`docs/telegram_bot.md`](docs/telegram_bot.md) — bot operational guide
-- [`docs/automation_forecast_refresh.md`](docs/automation_forecast_refresh.md) — refresh + redeploy architecture
+- [`docs/automation_forecast_refresh.md`](docs/automation_forecast_refresh.md) — refresh + Cloudflare Pages deployment architecture
 
 ## Outputs
 

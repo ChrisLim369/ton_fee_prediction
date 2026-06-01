@@ -5,7 +5,7 @@ This document explains how the Telegram `/forecast` command gets refreshed witho
 ## Architecture
 
 ```text
-GitHub Actions manual workflow
+GitHub Actions workflow
 -> restore ignored raw_transactions.csv from GitHub Actions cache
 -> update raw_transactions.csv incrementally
 -> save raw_transactions.csv back to GitHub Actions cache
@@ -13,15 +13,17 @@ GitHub Actions manual workflow
 -> regenerate predictions.csv
 -> regenerate SVG diagnostics and Telegram forecast PNG chart
 -> commit lightweight outputs back to GitHub
--> Netlify redeploys from GitHub or via optional build hook
--> Telegram webhook reads the newest deployed CSV/JSON/chart files
+-> main push triggers Cloudflare Pages deployment
+-> Telegram webhook reads the newest static CSV/JSON/chart files
 ```
 
 Telegram handlers stay read-only. They only read deployed files and send text responses. This keeps `/forecast` fast and prevents Telegram requests from triggering long API calls, training jobs, file writes, or secret exposure.
 
+Webhook single source: `functions/telegram-webhook.ts` is the Cloudflare Pages Function; `src/telegram_bot.py` is local polling/diagnostics only.
+
 ## Workflows
 
-The workflows are intentionally `workflow_dispatch` only. Netlify Free is credit-limited, and frequent production deploys can pause every project on the same Netlify team. Run these workflows manually unless the Netlify plan and deploy frequency are adjusted.
+Cloudflare Pages redeploys automatically on pushes to `main`. Heavy data collection, model training, and chart generation remain in GitHub Actions so Telegram requests stay lightweight.
 
 Hourly workflow:
 
@@ -29,7 +31,7 @@ Hourly workflow:
 .github/workflows/hourly_forecast_update.yml
 ```
 
-Runs manually through `workflow_dispatch`. It executes:
+Runs on the configured refresh cadence and can also be triggered manually. It executes:
 
 ```bash
 python src/refresh_forecast_outputs.py \
@@ -62,7 +64,7 @@ Daily workflow:
 .github/workflows/daily_model_retrain.yml
 ```
 
-Runs manually through `workflow_dispatch`. It refreshes the recent hourly data first, then runs:
+Runs on the configured retraining cadence and can also be triggered manually. It refreshes the recent hourly data first, then runs:
 
 ```bash
 python src/train_model.py
@@ -142,22 +144,19 @@ The first Actions run may not have a raw cache yet. In that case the workflow bo
 
 GitHub Actions cache is useful for this low-cost setup, but it is not a durable database. Cache entries can be evicted when repository cache storage is full or when they age out. If that happens, the workflow will bootstrap again from recent data and preserve older derived history through `hourly_features.csv`.
 
-## Netlify Redeploy
+## Cloudflare Pages Deployment
 
-The Netlify bot bundles CSV/JSON/SVG files at deploy time. Updated GitHub files must therefore trigger a new Netlify deploy.
+The Cloudflare Pages bot reads static CSV/JSON/SVG/PNG files served from the Pages deployment. GitHub Actions mirrors refreshed outputs into `docs/data/`, commits lightweight outputs, and pushes to `main`; that push triggers a Cloudflare Pages deployment automatically.
 
-For the current Netlify Free setup, avoid scheduled redeploys. Each production deploy consumes Netlify usage credits, and when the credit limit is exceeded Netlify pauses all projects on the team. Prefer manual refreshes, or move forecast data to external storage before restoring frequent schedules.
-
-Use one of these when you intentionally want a redeploy:
-
-1. Connect the Netlify site `ton-fee-forecast` to the GitHub repository and deploy from `main`.
-2. Or create a Netlify build hook and save it as the GitHub Actions secret:
+Cloudflare Pages settings:
 
 ```text
-NETLIFY_BUILD_HOOK_URL
+Framework: None
+Build command: none
+Output directory: docs
 ```
 
-The workflows do not call the build hook by default. The hook URL should be used only if Git-connected deploys are unavailable and the expected deploy frequency fits the active Netlify plan.
+No build hook is required.
 
 ## Required Secrets
 
@@ -165,10 +164,9 @@ GitHub Actions:
 
 ```text
 TONCENTER_API_KEY
-NETLIFY_BUILD_HOOK_URL   optional; use carefully because it can trigger production deploys
 ```
 
-Netlify:
+Cloudflare Pages > Settings > Variables and Secrets:
 
 ```text
 TELEGRAM_BOT_TOKEN

@@ -26,4 +26,4 @@ Manual steps:
    ```
    `docs/data` and `docs/figures` are refreshed daily and must publish.
 6. Verify in Telegram: `/forecast Asia/Seoul` returns the KST forecast and chart PNG.
-7. After one stable week on Cloudflare, remove the Netlify site/directory in a separate cleanup.
+7. Netlify removal completed (2026-06-01).
