@@ -119,7 +119,7 @@ def recompute_hourly_derived_features(hourly_df: pd.DataFrame) -> pd.DataFrame:
     the committed lightweight history, where raw transaction history is not
     available in CI.
     """
-    hourly = hourly_df.copy()
+    hourly = hourly_df.copy().reset_index(drop=True)
     if "hour" not in hourly.columns:
         raise ValueError("hourly feature dataset must include an hour column")
 

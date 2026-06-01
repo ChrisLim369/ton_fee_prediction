@@ -1,6 +1,12 @@
 import pandas as pd
 
-from src.features import build_hourly_features, normalize_bool, read_raw_transactions, write_data_dictionary
+from src.features import (
+    build_hourly_features,
+    normalize_bool,
+    read_raw_transactions,
+    recompute_hourly_derived_features,
+    write_data_dictionary,
+)
 from src.schema import RAW_COLUMNS
 
 
@@ -102,6 +108,14 @@ def test_build_hourly_features_uses_persisted_collection_cap_from_metadata() -> 
 
     capped = hourly.loc[hourly["hour"] == "2026-01-01T00:00:00Z"].iloc[0]
     uncapped = hourly.loc[hourly["hour"] == "2026-01-01T01:00:00Z"].iloc[0]
+    assert capped["collection_cap"] == 50_000
+    assert capped["is_capped_hour"] == 1
+    assert uncapped["collection_cap"] == 50_000
+    assert uncapped["is_capped_hour"] == 0
+
+    recomputed = recompute_hourly_derived_features(hourly)
+    capped = recomputed.loc[recomputed["hour"] == "2026-01-01T00:00:00Z"].iloc[0]
+    uncapped = recomputed.loc[recomputed["hour"] == "2026-01-01T01:00:00Z"].iloc[0]
     assert capped["collection_cap"] == 50_000
     assert capped["is_capped_hour"] == 1
     assert uncapped["collection_cap"] == 50_000

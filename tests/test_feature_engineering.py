@@ -87,3 +87,26 @@ def test_recompute_hourly_features_keeps_larger_tx_count_duplicate_and_recompute
     assert row["avg_total_fee"] == 200.0
     assert row["collection_cap"] == 200
     assert row["is_capped_hour"] == 0
+
+
+def test_recompute_preserves_recent_collection_cap_when_merging_with_legacy_rows() -> None:
+    hours = pd.date_range("2026-01-01T00:00:00Z", periods=2, freq="h")
+    existing = hourly_frame(pd.DatetimeIndex([hours[0]]), [100.0])
+    existing["tx_count"] = 100
+    existing["collection_cap"] = pd.NA
+    existing["is_capped_hour"] = 0
+    recent = hourly_frame(hours, [120.0, 130.0])
+    recent["tx_count"] = [50_000, 10]
+    recent["collection_cap"] = 50_000
+    recent["is_capped_hour"] = [1, 0]
+
+    result = recompute_hourly_derived_features(pd.concat([recent, existing], ignore_index=True))
+
+    overlap = result.loc[result["hour"] == "2026-01-01T00:00:00Z"].iloc[0]
+    new_hour = result.loc[result["hour"] == "2026-01-01T01:00:00Z"].iloc[0]
+    assert overlap["tx_count"] == 50_000
+    assert overlap["avg_total_fee"] == 120.0
+    assert overlap["collection_cap"] == 50_000
+    assert overlap["is_capped_hour"] == 1
+    assert new_hour["collection_cap"] == 50_000
+    assert new_hour["is_capped_hour"] == 0
