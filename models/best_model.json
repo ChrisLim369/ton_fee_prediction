@@ -1,7 +1,7 @@
 {
-  "model_name": "persistence",
+  "model_name": "rolling_mean_6h",
   "model_type": "naive",
-  "baseline_kind": "persistence",
+  "baseline_kind": "rolling_mean_6h",
   "target_column": "target_next_hour_avg_fee",
   "target_transform": "none",
   "feature_columns": [
@@ -66,14 +66,14 @@
     "day_sin",
     "day_cos"
   ],
-  "trained_at_utc": "2026-06-01T04:44:21.956540+00:00",
+  "trained_at_utc": "2026-06-01T14:18:51.745907+00:00",
   "metrics": {
-    "mae": 61286.053015115074,
-    "rmse": 107505.86620174184,
-    "r2": 0.45321710060665077,
-    "mape": 10.610818552157767,
-    "directional_accuracy": 0.0,
-    "model_name": "persistence",
+    "mae": 65247.51041067061,
+    "rmse": 115768.04527576403,
+    "r2": 0.3659434420075206,
+    "mape": 11.29860045214069,
+    "directional_accuracy": 0.6612377850162866,
+    "model_name": "rolling_mean_6h",
     "model_type": "naive",
     "target_transform": "none",
     "alpha": 0.0,
@@ -82,7 +82,6 @@
   },
   "naive_state": {
     "last_24_avg_total_fee": [
-      484576.7962054999,
       493643.0093948884,
       592405.4418604651,
       462377.7309567046,
@@ -105,7 +104,8 @@
       430739.1272,
       462518.8213,
       490709.061,
-      474278.2775
+      474278.2775,
+      462301.3002
     ]
   }
 }

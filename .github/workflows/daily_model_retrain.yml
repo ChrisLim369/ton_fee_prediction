@@ -102,6 +102,9 @@ jobs:
       - name: Retrain model suite
         run: python src/train_model.py
 
+      - name: Promote horizon-validated forecast model
+        run: python src/promote_forecast_model.py
+
       - name: Regenerate forecast with retrained model
         run: python src/generate_forecast.py
 
