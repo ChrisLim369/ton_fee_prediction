@@ -135,14 +135,7 @@ jobs:
           fi
 
       - name: Mirror static data for Cloudflare Pages
-        run: |
-          mkdir -p docs/data/models
-          cp predictions.csv hourly_features.csv last_updated.json collection_metadata.json actual_vs_predicted.csv docs/data/
-          cp forecast_log.csv forecast_accuracy.csv docs/data/
-          cp models/best_model.json models/model_metrics.json models/model_comparison.csv models/rolling_backtest.csv docs/data/models/
-          cp models/operational_metrics.json docs/data/models/
-          cp models/capping_diagnostic.json docs/data/models/
-          cp models/forecast_intervals.json docs/data/models/
+        run: python scripts/mirror_static_data.py
 
       - name: Commit refreshed lightweight outputs
         id: commit
