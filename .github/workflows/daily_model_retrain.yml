@@ -1,4 +1,4 @@
-name: Manual TON Model Retrain
+name: Weekly TON Model Retrain
 
 on:
   workflow_dispatch:

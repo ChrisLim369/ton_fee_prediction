@@ -2,7 +2,7 @@
 
 The project supports incremental updates as new TON transactions are indexed by TON Center API v3.
 
-## Manual Hourly Update
+## Manual Forecast Update
 
 Run these commands from the project root:
 
@@ -20,8 +20,8 @@ python src/train_model.py
 
 Recommended cadence:
 
-- Every hour: run `update_data.py`, `build_features.py`, and `generate_forecast.py`.
-- Once per day: run `train_model.py`, then regenerate the forecast and charts.
+- Once per day: run `update_data.py`, `build_features.py`, and `generate_forecast.py`.
+- Once per week: run `train_model.py`, then regenerate the forecast and charts.
 
 ## API Key
 
@@ -47,30 +47,30 @@ python src/update_data.py \
 
 ## Local Cron
 
-Hourly update:
+Daily forecast refresh:
 
 ```cron
-0 * * * * cd /path/to/project && /usr/bin/env python3 src/update_data.py && /usr/bin/env python3 src/build_features.py && /usr/bin/env python3 src/generate_forecast.py
+0 15 * * * cd /path/to/project && /usr/bin/env python3 src/update_data.py && /usr/bin/env python3 src/build_features.py && /usr/bin/env python3 src/generate_forecast.py
 ```
 
-Daily retraining at 00:10 UTC:
+Weekly retraining at 16:00 UTC on Sunday:
 
 ```cron
-10 0 * * * cd /path/to/project && /usr/bin/env python3 src/train_model.py && /usr/bin/env python3 src/generate_forecast.py && /usr/bin/env python3 scripts/generate_charts.py
+0 16 * * 0 cd /path/to/project && /usr/bin/env python3 src/train_model.py && /usr/bin/env python3 src/generate_forecast.py && /usr/bin/env python3 scripts/generate_charts.py
 ```
 
-The minimal command requested for collection only is:
+The minimal collection-only command matching the hosted refresh cadence is:
 
 ```cron
-0 * * * * python /path/to/project/src/update_data.py
+0 15 * * * python /path/to/project/src/update_data.py
 ```
 
 ## GitHub Actions
 
 The repository contains two scheduled workflows:
 
-- `.github/workflows/hourly_forecast_update.yml`: runs hourly, restores ignored `raw_transactions.csv` from GitHub Actions cache, updates it incrementally, merges refreshed hourly aggregates into `hourly_features.csv`, regenerates `predictions.csv`, regenerates charts, saves the raw CSV back to cache, and commits lightweight outputs.
-- `.github/workflows/daily_model_retrain.yml`: runs daily, restores and updates cached raw data, refreshes hourly data, retrains the model suite, regenerates the forecast and charts, saves the raw CSV back to cache, and commits lightweight model outputs.
+- `.github/workflows/hourly_forecast_update.yml`: runs once daily, restores ignored `raw_transactions.csv` from GitHub Actions cache, updates it incrementally, merges refreshed hourly aggregates into `hourly_features.csv`, regenerates `predictions.csv`, regenerates charts, saves the raw CSV back to cache, and commits lightweight outputs.
+- `.github/workflows/daily_model_retrain.yml`: runs once weekly, restores and updates cached raw data, refreshes hourly data, retrains the model suite, regenerates the forecast and charts, saves the raw CSV back to cache, and commits lightweight model outputs.
 
 The workflows intentionally do not commit `raw_transactions.csv`. GitHub Actions uses `src/refresh_forecast_outputs.py` with `actions/cache` so raw state can continue across workflow runs without being tracked by Git. If the cache is evicted or missing, the workflow bootstraps recent raw data and preserves older derived history through `hourly_features.csv`.
 

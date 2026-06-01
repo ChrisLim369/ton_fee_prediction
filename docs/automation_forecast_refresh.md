@@ -25,7 +25,7 @@ Webhook single source: `functions/telegram-webhook.ts` is the Cloudflare Pages F
 
 Cloudflare Pages redeploys automatically on pushes to `main`. Heavy data collection, model training, and chart generation remain in GitHub Actions so Telegram requests stay lightweight.
 
-Hourly workflow:
+Daily forecast workflow:
 
 ```text
 .github/workflows/hourly_forecast_update.yml
@@ -58,7 +58,7 @@ docs/figures/*.svg
 docs/figures/*.png
 ```
 
-Daily workflow:
+Weekly retraining workflow:
 
 ```text
 .github/workflows/daily_model_retrain.yml
@@ -235,6 +235,6 @@ Do not commit `raw_transactions.csv`.
 
 The GitHub Actions-only setup stores raw state in GitHub Actions cache, not in a dedicated database or object store. This is cheaper and simpler than VPS/object storage, but less durable.
 
-If the raw cache is restored, daily retraining uses hourly features rebuilt from the available cached raw state merged into the existing committed hourly history. If the cache is missing or evicted, the workflow bootstraps recent raw data again and keeps older history from `hourly_features.csv`.
+If the raw cache is restored, weekly retraining uses hourly features rebuilt from the available cached raw state merged into the existing committed hourly history. If the cache is missing or evicted, the workflow bootstraps recent raw data again and keeps older history from `hourly_features.csv`.
 
 If TON Center page limits are hit, `tx_count` and `unique_accounts` remain sampled activity indicators rather than full-chain counts. For production-grade durability, use a VPS or object storage later.

@@ -36,7 +36,7 @@ The project pulls raw transaction data from the **TON Center API v3**, aggregate
 - 24-hour forecast with diagnostic SVG/PNG visualizations
 - Telegram bot with `/forecast`, `/besttime`, `/timezone` commands and per-request timezone override
 - Two deployment modes: Cloudflare Pages webhook function **or** local Python polling for diagnostics
-- GitHub Actions workflows for hourly refresh and daily retraining
+- GitHub Actions workflows for daily forecast refresh and weekly retraining
 
 ## Tech Stack
 
@@ -191,13 +191,13 @@ See [`docs/telegram_bot.md`](docs/telegram_bot.md) for the full operational guid
 ### Local cron
 
 ```cron
-0 * * * * python /path/to/project/src/update_data.py
+0 15 * * * python /path/to/project/src/update_data.py
 ```
 
 ### GitHub Actions
 
-- [`.github/workflows/hourly_forecast_update.yml`](.github/workflows/hourly_forecast_update.yml) — refresh recent data, features, predictions, charts
-- [`.github/workflows/daily_model_retrain.yml`](.github/workflows/daily_model_retrain.yml) — refresh data, retrain model suite, regenerate forecasts
+- [`.github/workflows/hourly_forecast_update.yml`](.github/workflows/hourly_forecast_update.yml) — runs once daily to refresh recent data, features, predictions, and charts
+- [`.github/workflows/daily_model_retrain.yml`](.github/workflows/daily_model_retrain.yml) — runs once weekly to refresh data, retrain the model suite, and regenerate forecasts
 
 Both rely on `src/refresh_forecast_outputs.py`, which restores the gitignored `raw_transactions.csv` from Actions cache, updates incrementally, merges aggregates into the committed `hourly_features.csv`, and **never commits the raw CSV**.
 
