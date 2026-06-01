@@ -81,6 +81,31 @@ def collect_recent_raw(args: argparse.Namespace, start_dt: datetime, end_dt: dat
     return update_raw_data(update_args)
 
 
+def assess_refresh_health(
+    previous_hourly_rows: int | None,
+    current_hourly_rows: int | None,
+    previous_latest_hour: str | None,
+    current_latest_hour: str | None,
+) -> tuple[str, str | None]:
+    if previous_hourly_rows is not None and current_hourly_rows is not None:
+        if int(current_hourly_rows) < int(previous_hourly_rows):
+            return (
+                "degraded",
+                f"hourly feature row count regressed from {previous_hourly_rows} to {current_hourly_rows}",
+            )
+
+    if previous_latest_hour and current_latest_hour:
+        previous_latest = pd.Timestamp(previous_latest_hour)
+        current_latest = pd.Timestamp(current_latest_hour)
+        if current_latest < previous_latest:
+            return (
+                "degraded",
+                f"latest hourly feature timestamp regressed from {previous_latest_hour} to {current_latest_hour}",
+            )
+
+    return "success", None
+
+
 def merge_hourly_features(args: argparse.Namespace, collection_status: dict[str, Any]) -> dict[str, Any]:
     recent_raw_path = resolve_path(args.recent_raw)
     hourly_path = resolve_path(args.hourly_features)
@@ -93,14 +118,22 @@ def merge_hourly_features(args: argparse.Namespace, collection_status: dict[str,
     existing_hourly = pd.DataFrame()
     if hourly_path.exists():
         existing_hourly = pd.read_csv(hourly_path)
+    previous_hourly_rows = int(len(existing_hourly))
+    previous_latest_hour = None
+    if not existing_hourly.empty and "hour" in existing_hourly.columns:
+        previous_latest_hour = (
+            pd.to_datetime(existing_hourly["hour"], utc=True).max().strftime("%Y-%m-%dT%H:%M:%SZ")
+        )
 
-    merged = pd.concat([existing_hourly, recent_hourly], ignore_index=True)
+    merged = pd.concat([recent_hourly, existing_hourly], ignore_index=True)
     merged = recompute_hourly_derived_features(merged)
 
     hourly_path.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(hourly_path, index=False)
 
     return {
+        "previous_hourly_rows": previous_hourly_rows,
+        "previous_latest_hour": previous_latest_hour,
         "recent_raw_rows": int(len(raw_df)),
         "recent_hourly_rows": int(len(recent_hourly)),
         "hourly_rows": int(len(merged)),
@@ -121,6 +154,12 @@ def update_metadata(
 
     previous_full_rows = previous.get("final_rows")
     current_final_rows = collection_status.get("final_rows")
+    health_status, degradation_reason = assess_refresh_health(
+        merge_status.get("previous_hourly_rows"),
+        merge_status.get("hourly_rows"),
+        merge_status.get("previous_latest_hour"),
+        merge_status.get("latest_feature_hour"),
+    )
     generated_at = None
     predictions_path = resolve_path(args.predictions)
     if predictions_path.exists():
@@ -137,6 +176,8 @@ def update_metadata(
         "automation_mode": "persistent_raw_cache_merge" if args.use_raw_latest_state else "recent_raw_merge",
         "update_finished_at_utc": datetime.now(UTC).isoformat(),
         "recent_raw_path": str(resolve_path(args.recent_raw).relative_to(PROJECT_ROOT)),
+        "previous_hourly_rows": merge_status.get("previous_hourly_rows"),
+        "previous_latest_feature_hour": merge_status.get("previous_latest_hour"),
         "recent_raw_rows_collected": merge_status["recent_raw_rows"],
         "recent_hourly_rows": merge_status["recent_hourly_rows"],
         "hourly_rows": merge_status["hourly_rows"],
@@ -148,9 +189,9 @@ def update_metadata(
         "previous_known_full_raw_rows": previous_full_rows,
         "final_rows": current_final_rows or previous_full_rows,
         "raw_rows_note": (
-            "raw_transactions.csv is not committed to Git. In GitHub Actions-only mode, "
-            "the ignored raw CSV is restored from and saved back to the GitHub Actions cache "
-            "when available. If no cache exists, the workflow bootstraps a recent raw window."
+            "raw_transactions.csv is not committed to Git. In GitHub Actions-only mode, the ignored raw CSV "
+            "is a recent-window runner buffer restored from and saved back to the GitHub Actions cache when "
+            "available. Durable feature history is preserved by committed hourly_features.csv."
         ),
         "note": (
             "Automated refresh updated the available raw transaction state, merged refreshed hourly "
@@ -158,15 +199,9 @@ def update_metadata(
             "Transaction count features remain sampled when TON Center page limits are reached."
         ),
     }
-    if previous_full_rows is not None and current_final_rows is not None:
-        previous_rows = int(previous_full_rows)
-        current_rows = int(current_final_rows)
-        if current_rows < previous_rows * 0.9:
-            payload["status"] = "degraded"
-            payload["degradation_reason"] = (
-                f"raw row count regressed from {previous_rows} to {current_rows}; "
-                "refusing to publish a potentially truncated dataset"
-            )
+    if health_status == "degraded":
+        payload["status"] = health_status
+        payload["degradation_reason"] = degradation_reason
 
     write_json(last_updated_path, payload)
     write_json(metadata_path, payload)
