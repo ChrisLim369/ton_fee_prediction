@@ -181,12 +181,26 @@ def train_model_suite(
     )
     selected_by = "chronological holdout R2"
     if rolling_summary is not None and not rolling_summary.empty:
-        rolling_selection = rolling_summary.sort_values(
-            ["mean_r2", "median_rmse"],
+        rolling_selection = rolling_summary.copy()
+        persistence_mean_mae = float(
+            rolling_selection.loc[rolling_selection["model_name"] == "persistence", "mean_mae"].iloc[0]
+        )
+        rolling_selection["skill_vs_persistence"] = 1 - (
+            rolling_selection["mean_mae"].astype(float) / persistence_mean_mae
+        )
+        skilled = rolling_selection[rolling_selection["skill_vs_persistence"] > 0].sort_values(
+            ["skill_vs_persistence", "median_rmse"],
             ascending=[False, True],
         )
+        if skilled.empty:
+            rolling_selection = rolling_selection[
+                rolling_selection["model_name"].isin(["persistence", "rolling_mean_6h"])
+            ].sort_values(["mean_mae", "median_rmse"], ascending=[True, True])
+            selected_by = "rolling backtest naive fallback by mean MAE"
+        else:
+            rolling_selection = skilled
+            selected_by = "rolling backtest MAE skill vs persistence"
         best_model_name = str(rolling_selection.iloc[0]["model_name"])
-        selected_by = "rolling backtest mean R2 (tie-break median RMSE)"
     else:
         best_model_name = str(comparison.iloc[0]["model_name"])
     best_comparison_row = comparison[comparison["model_name"] == best_model_name].iloc[0]
@@ -208,5 +222,4 @@ def train_model_suite(
     }
 
     return best_model, comparison, feature_importance, best_actual_vs_predicted, summary
-
 
