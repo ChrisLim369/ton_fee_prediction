@@ -23,7 +23,7 @@ if __package__:
     from .ingestion import sum_message_field as sum_message_field
     from .ingestion import write_raw_csv as write_raw_csv
     from .features import build_hourly_features as build_hourly_features
-    from .features import capped_hours_from_metadata as capped_hours_from_metadata
+    from .features import collection_cap_from_metadata as collection_cap_from_metadata
     from .features import normalize_bool as normalize_bool
     from .features import prepare_model_matrix as prepare_model_matrix
     from .features import read_raw_transactions as read_raw_transactions
@@ -69,7 +69,7 @@ else:
     from ingestion import sum_message_field as sum_message_field
     from ingestion import write_raw_csv as write_raw_csv
     from features import build_hourly_features as build_hourly_features
-    from features import capped_hours_from_metadata as capped_hours_from_metadata
+    from features import collection_cap_from_metadata as collection_cap_from_metadata
     from features import normalize_bool as normalize_bool
     from features import prepare_model_matrix as prepare_model_matrix
     from features import read_raw_transactions as read_raw_transactions
