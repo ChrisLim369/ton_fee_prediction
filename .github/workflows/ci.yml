@@ -31,7 +31,7 @@ jobs:
         run: pytest
 
       - name: Audit serving artifacts
-        run: python scripts/audit_artifacts.py
+        run: python scripts/audit_artifacts.py --strict
 
   worker:
     runs-on: ubuntu-latest
