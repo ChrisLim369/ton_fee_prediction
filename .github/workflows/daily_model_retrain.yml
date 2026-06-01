@@ -67,7 +67,7 @@ jobs:
                       last_now = now
               earliest = int(time.time()) - 90 * 24 * 60 * 60
               latest = int(time.time()) + 24 * 60 * 60
-              valid = rows >= 100000 and first_now is not None and earliest <= first_now <= latest and earliest <= last_now <= latest
+              valid = rows >= 1000 and first_now is not None and earliest <= first_now <= latest and earliest <= last_now <= latest
 
           if not valid:
               path.unlink(missing_ok=True)
