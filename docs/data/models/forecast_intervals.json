@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-31T14:29:29Z",
+  "generated_at_utc": "2026-06-01T02:19:33Z",
   "method": "in_sample_replay",
   "levels": [
     80,
@@ -12,470 +12,470 @@
   },
   "by_horizon": {
     "1": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -198229.84120000014,
-        "width_hi": 171909.75285265275,
-        "coverage_oos": 0.9496221662468514
+        "width_lo": -130647.97667829506,
+        "width_hi": 143670.4733808306,
+        "coverage_oos": 0.9205955334987593
       },
       "50": {
-        "width_lo": -62937.40710397606,
-        "width_hi": 52149.007952649845,
-        "coverage_oos": 0.7934508816120907
+        "width_lo": -52064.01727047365,
+        "width_hi": 45269.12044345221,
+        "coverage_oos": 0.7468982630272953
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "2": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -205327.02131666685,
-        "width_hi": 191120.35908888886,
-        "coverage_oos": 0.9445843828715366
+        "width_lo": -1429250.294432324,
+        "width_hi": 217175.55831366964,
+        "coverage_oos": 0.5186104218362283
       },
       "50": {
-        "width_lo": -67395.24784444459,
-        "width_hi": 52965.535827955115,
-        "coverage_oos": 0.7984886649874056
+        "width_lo": -1371379.713454247,
+        "width_hi": 59354.648709209636,
+        "coverage_oos": 0.22332506203473945
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "3": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -216588.8147759256,
-        "width_hi": 194686.0738814813,
-        "coverage_oos": 0.9420654911838791
+        "width_lo": -1534454.9062181916,
+        "width_hi": 238931.385618628,
+        "coverage_oos": 0.543424317617866
       },
       "50": {
-        "width_lo": -71991.3621067024,
-        "width_hi": 52648.836260078184,
-        "coverage_oos": 0.7884130982367759
+        "width_lo": -1476259.763582432,
+        "width_hi": 93531.42711909069,
+        "coverage_oos": 0.2456575682382134
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "4": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -219972.56222669734,
-        "width_hi": 201304.57350231474,
-        "coverage_oos": 0.9370277078085643
+        "width_lo": -1538782.649552592,
+        "width_hi": 264110.66748038726,
+        "coverage_oos": 0.5533498759305211
       },
       "50": {
-        "width_lo": -70900.59376651281,
-        "width_hi": 58383.07602654351,
-        "coverage_oos": 0.7858942065491183
+        "width_lo": -1479470.6930966615,
+        "width_hi": 106886.95871151751,
+        "coverage_oos": 0.2456575682382134
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "5": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -230179.6061660233,
-        "width_hi": 208837.511212294,
-        "coverage_oos": 0.9370277078085643
+        "width_lo": -1549410.0493664832,
+        "width_hi": 274601.44417675026,
+        "coverage_oos": 0.5533498759305211
       },
       "50": {
-        "width_lo": -72128.17412553425,
-        "width_hi": 59740.408609933394,
-        "coverage_oos": 0.7909319899244333
+        "width_lo": -1486236.9732989133,
+        "width_hi": 110955.61784001114,
+        "coverage_oos": 0.24813895781637718
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "6": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -227894.86763341492,
-        "width_hi": 207549.72648539953,
-        "coverage_oos": 0.9420654911838791
+        "width_lo": -1554954.4471677921,
+        "width_hi": 281642.2678827611,
+        "coverage_oos": 0.5533498759305211
       },
       "50": {
-        "width_lo": -78085.43156376481,
-        "width_hi": 62378.90664207749,
-        "coverage_oos": 0.7984886649874056
+        "width_lo": -1489702.4222910306,
+        "width_hi": 116340.96389766829,
+        "coverage_oos": 0.24813895781637718
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "7": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -245852.16802348336,
-        "width_hi": 211188.23986194422,
-        "coverage_oos": 0.9420654911838791
+        "width_lo": -1560185.459163325,
+        "width_hi": 282387.6498775943,
+        "coverage_oos": 0.5459057071960298
       },
       "50": {
-        "width_lo": -89424.10557500739,
-        "width_hi": 67074.66766067198,
-        "coverage_oos": 0.8136020151133502
+        "width_lo": -1490811.4002885816,
+        "width_hi": 122652.42164277611,
+        "coverage_oos": 0.2555831265508685
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "8": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -250684.28549344558,
-        "width_hi": 214133.8025095826,
-        "coverage_oos": 0.9395465994962217
+        "width_lo": -1571438.225894323,
+        "width_hi": 288241.3569839946,
+        "coverage_oos": 0.5459057071960298
       },
       "50": {
-        "width_lo": -84392.8867181507,
-        "width_hi": 64587.33160345559,
-        "coverage_oos": 0.8161209068010076
+        "width_lo": -1506152.1943814866,
+        "width_hi": 123945.45245609572,
+        "coverage_oos": 0.2655086848635236
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "9": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -247020.84705846244,
-        "width_hi": 227656.21379865473,
-        "coverage_oos": 0.9420654911838791
+        "width_lo": -1581929.9596275578,
+        "width_hi": 295590.3236610787,
+        "coverage_oos": 0.5583126550868487
       },
       "50": {
-        "width_lo": -89775.6831300105,
-        "width_hi": 61244.507320353296,
-        "coverage_oos": 0.8136020151133502
+        "width_lo": -1510563.9374437209,
+        "width_hi": 126366.41919796355,
+        "coverage_oos": 0.28287841191067
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "10": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -243511.34502696758,
-        "width_hi": 224345.26374810096,
-        "coverage_oos": 0.9395465994962217
+        "width_lo": -1590615.5942940575,
+        "width_hi": 295590.3236610787,
+        "coverage_oos": 0.5707196029776674
       },
       "50": {
-        "width_lo": -82994.05962768744,
-        "width_hi": 66406.95721365442,
-        "coverage_oos": 0.8161209068010076
+        "width_lo": -1513855.4828279032,
+        "width_hi": 125832.51697518071,
+        "coverage_oos": 0.2853598014888337
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "11": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -251514.5096842358,
-        "width_hi": 232286.63747920794,
-        "coverage_oos": 0.929471032745592
+        "width_lo": -1597036.9265703326,
+        "width_hi": 296297.167588599,
+        "coverage_oos": 0.5806451612903226
       },
       "50": {
-        "width_lo": -83277.82754856255,
-        "width_hi": 66381.03652602248,
-        "coverage_oos": 0.8110831234256927
+        "width_lo": -1518755.6282360556,
+        "width_hi": 129891.7653113096,
+        "coverage_oos": 0.29280397022332505
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "12": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -258792.6591537604,
-        "width_hi": 224175.75668992056,
-        "coverage_oos": 0.9345088161209067
+        "width_lo": -1599980.4145902349,
+        "width_hi": 298427.5737799634,
+        "coverage_oos": 0.5806451612903226
       },
       "50": {
-        "width_lo": -84483.52814594388,
-        "width_hi": 65420.24648801779,
-        "coverage_oos": 0.8211586901763224
+        "width_lo": -1520310.3038527248,
+        "width_hi": 129891.7653113096,
+        "coverage_oos": 0.3002481389578164
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "13": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -271836.3703505136,
-        "width_hi": 235781.43959144736,
-        "coverage_oos": 0.9370277078085643
+        "width_lo": -1601460.4172701319,
+        "width_hi": 300541.8967686035,
+        "coverage_oos": 0.5707196029776674
       },
       "50": {
-        "width_lo": -78048.51983661373,
-        "width_hi": 65581.43245736312,
-        "coverage_oos": 0.8085642317380353
+        "width_lo": -1522542.0239508664,
+        "width_hi": 130249.97696633311,
+        "coverage_oos": 0.3027295285359802
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "14": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -270374.3444710076,
-        "width_hi": 232658.66551380092,
-        "coverage_oos": 0.9319899244332494
+        "width_lo": -1607156.6788287512,
+        "width_hi": 301971.6893623229,
+        "coverage_oos": 0.5682382133995038
       },
       "50": {
-        "width_lo": -77439.29593818932,
-        "width_hi": 66471.83318102034,
-        "coverage_oos": 0.8085642317380353
+        "width_lo": -1529651.892555764,
+        "width_hi": 131850.727189261,
+        "coverage_oos": 0.3027295285359802
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "15": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -264584.3786666598,
-        "width_hi": 235296.59779835632,
-        "coverage_oos": 0.9345088161209067
+        "width_lo": -1608545.1084202034,
+        "width_hi": 301415.65104528656,
+        "coverage_oos": 0.5632754342431762
       },
       "50": {
-        "width_lo": -80548.87064565875,
-        "width_hi": 69166.20507602644,
-        "coverage_oos": 0.8085642317380353
+        "width_lo": -1532422.1738508665,
+        "width_hi": 132965.24945504265,
+        "coverage_oos": 0.3076923076923077
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "16": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -258116.63718761643,
-        "width_hi": 228154.88963664725,
-        "coverage_oos": 0.9269521410579346
+        "width_lo": -1610557.0714830342,
+        "width_hi": 300541.8967686035,
+        "coverage_oos": 0.5607940446650124
       },
       "50": {
-        "width_lo": -80058.37654427794,
-        "width_hi": 68253.69254166633,
-        "coverage_oos": 0.7934508816120907
+        "width_lo": -1535888.7978372965,
+        "width_hi": 130407.7182069011,
+        "coverage_oos": 0.3052109181141439
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "17": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -254640.36480235215,
-        "width_hi": 222084.5469258299,
-        "coverage_oos": 0.924433249370277
+        "width_lo": -1612164.4025379873,
+        "width_hi": 301971.6893623229,
+        "coverage_oos": 0.5632754342431762
       },
       "50": {
-        "width_lo": -82649.58474595612,
-        "width_hi": 70739.80174434208,
-        "coverage_oos": 0.7884130982367759
+        "width_lo": -1537474.7032925296,
+        "width_hi": 132145.5863671298,
+        "coverage_oos": 0.315136476426799
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "18": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -259269.83982917294,
-        "width_hi": 225281.26110195706,
-        "coverage_oos": 0.924433249370277
+        "width_lo": -1613398.740211237,
+        "width_hi": 306225.1962963706,
+        "coverage_oos": 0.5707196029776674
       },
       "50": {
-        "width_lo": -84536.934704519,
-        "width_hi": 65956.92692763405,
-        "coverage_oos": 0.7884130982367759
+        "width_lo": -1540503.9544287026,
+        "width_hi": 132965.24945504265,
+        "coverage_oos": 0.32754342431761785
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "19": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -259366.0829066974,
-        "width_hi": 217823.325338307,
-        "coverage_oos": 0.9193954659949622
+        "width_lo": -1615077.2180439827,
+        "width_hi": 304505.4159976328,
+        "coverage_oos": 0.575682382133995
       },
       "50": {
-        "width_lo": -81781.41664838605,
-        "width_hi": 70359.49292548804,
-        "coverage_oos": 0.7884130982367759
+        "width_lo": -1543130.9900761982,
+        "width_hi": 132965.24945504265,
+        "coverage_oos": 0.3250620347394541
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "20": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -265045.7383349333,
-        "width_hi": 208006.51399169024,
-        "coverage_oos": 0.9219143576826196
+        "width_lo": -1617473.3535274686,
+        "width_hi": 304505.4159976328,
+        "coverage_oos": 0.6004962779156328
       },
       "50": {
-        "width_lo": -85463.95406852453,
-        "width_hi": 70857.8632625388,
-        "coverage_oos": 0.8261964735516373
+        "width_lo": -1546013.1821251637,
+        "width_hi": 132145.5863671298,
+        "coverage_oos": 0.3325062034739454
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "21": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -261270.87223501736,
-        "width_hi": 215500.99203264108,
-        "coverage_oos": 0.9193954659949622
+        "width_lo": -1619003.2741189748,
+        "width_hi": 306225.1962963706,
+        "coverage_oos": 0.6129032258064516
       },
       "50": {
-        "width_lo": -88507.00032853108,
-        "width_hi": 60030.69174351799,
-        "coverage_oos": 0.8060453400503779
+        "width_lo": -1548092.6154726662,
+        "width_hi": 133713.14618926076,
+        "coverage_oos": 0.33002481389578164
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "22": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -250978.47133285832,
-        "width_hi": 217067.912294277,
-        "coverage_oos": 0.9118387909319899
+        "width_lo": -1619279.217703862,
+        "width_hi": 304505.4159976328,
+        "coverage_oos": 0.6004962779156328
       },
       "50": {
-        "width_lo": -88986.45805678843,
-        "width_hi": 61583.08259054844,
-        "coverage_oos": 0.7884130982367759
+        "width_lo": -1549713.4141629245,
+        "width_hi": 133713.14618926076,
+        "coverage_oos": 0.33002481389578164
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "23": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -252413.41436788952,
-        "width_hi": 217876.54971210565,
-        "coverage_oos": 0.9168765743073047
+        "width_lo": -1619813.2846129986,
+        "width_hi": 307265.8956527882,
+        "coverage_oos": 0.6054590570719603
       },
       "50": {
-        "width_lo": -87571.93527213577,
-        "width_hi": 63166.68284113752,
-        "coverage_oos": 0.7707808564231738
+        "width_lo": -1550423.4535887921,
+        "width_hi": 136871.04971149517,
+        "coverage_oos": 0.33002481389578164
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     },
     "24": {
-      "n": 1321,
+      "n": 1341,
       "80": {
-        "width_lo": -264289.6124847899,
-        "width_hi": 216363.08291685884,
-        "coverage_oos": 0.9118387909319899
+        "width_lo": -1621388.6461422967,
+        "width_hi": 307265.8956527882,
+        "coverage_oos": 0.6004962779156328
       },
       "50": {
-        "width_lo": -89578.30238049541,
-        "width_hi": 70775.67032972665,
-        "coverage_oos": 0.7531486146095718
+        "width_lo": -1553579.6929569026,
+        "width_hi": 137869.93138787197,
+        "coverage_oos": 0.32754342431761785
       },
       "calibration": {
         "method": "out_of_sample_chronological",
         "fit_fraction": 0.7,
-        "fit_n": 924,
-        "check_n": 397
+        "fit_n": 938,
+        "check_n": 403
       }
     }
   },
   "overall_coverage": {
     "80": {
-      "check_n": 9528,
-      "coverage_oos": 0.9316750629722922
+      "check_n": 9672,
+      "coverage_oos": 0.5840570719602978
     },
     "50": {
-      "check_n": 9528,
-      "coverage_oos": 0.7990134340890008
+      "check_n": 9672,
+      "coverage_oos": 0.3115177832919768
     }
   },
   "limitations": [

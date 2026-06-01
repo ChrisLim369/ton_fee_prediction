@@ -1,38 +1,239 @@
 {
-  "generated_at_utc": "2026-05-31T12:53:50Z",
-  "status": "accumulating",
-  "reconciled_rows": 0,
-  "pending_rows": 24,
+  "generated_at_utc": "2026-06-01T02:19:34Z",
+  "status": "active",
+  "reconciled_rows": 20,
+  "pending_rows": 28,
   "overall": {
-    "n": 0,
-    "mae": null,
-    "rmse": null,
-    "mape": null,
-    "r2": null,
-    "directional_accuracy": null,
-    "persistence_mae": null,
-    "skill_score": null
+    "n": 20,
+    "mae": 19962.798641220852,
+    "rmse": 24403.507841362836,
+    "mape": 4.19922110448281,
+    "r2": -0.08945899050654327,
+    "directional_accuracy": 0.95,
+    "persistence_mae": 44330.44059552633,
+    "skill_score": 0.5496819257141463
   },
-  "by_horizon": {},
-  "by_capped": {
-    "clean": {
-      "n": 0,
-      "mae": null,
-      "rmse": null,
+  "by_horizon": {
+    "1": {
+      "n": 1,
+      "mae": 8516.4548330197,
+      "rmse": 8516.4548330197,
       "mape": null,
       "r2": null,
-      "directional_accuracy": null,
-      "persistence_mae": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 46307.4994894737,
       "skill_score": null
     },
-    "capped": {
-      "n": 0,
-      "mae": null,
-      "rmse": null,
+    "2": {
+      "n": 1,
+      "mae": 27848.831360184005,
+      "rmse": 27848.831360184005,
       "mape": null,
       "r2": null,
-      "directional_accuracy": null,
-      "persistence_mae": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 28313.201289473684,
+      "skill_score": null
+    },
+    "3": {
+      "n": 1,
+      "mae": 32673.71183070197,
+      "rmse": 32673.71183070197,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 90385.56458947365,
+      "skill_score": null
+    },
+    "4": {
+      "n": 1,
+      "mae": 8113.4022983662435,
+      "rmse": 8113.4022983662435,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 49895.53838947369,
+      "skill_score": null
+    },
+    "5": {
+      "n": 1,
+      "mae": 34962.547728650214,
+      "rmse": 34962.547728650214,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 76857.6855894737,
+      "skill_score": null
+    },
+    "6": {
+      "n": 1,
+      "mae": 19953.885690457246,
+      "rmse": 19953.885690457246,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 24813.100689473737,
+      "skill_score": null
+    },
+    "7": {
+      "n": 1,
+      "mae": 37.499312887433916,
+      "rmse": 37.499312887433916,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 52265.6500894737,
+      "skill_score": null
+    },
+    "8": {
+      "n": 1,
+      "mae": 1995.0149627946084,
+      "rmse": 1995.0149627946084,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 49800.5018894737,
+      "skill_score": null
+    },
+    "9": {
+      "n": 1,
+      "mae": 28609.878370103484,
+      "rmse": 28609.878370103484,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 79677.64258947369,
+      "skill_score": null
+    },
+    "10": {
+      "n": 1,
+      "mae": 1714.0757600038196,
+      "rmse": 1714.0757600038196,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 51674.49188947369,
+      "skill_score": null
+    },
+    "11": {
+      "n": 1,
+      "mae": 26215.57211973227,
+      "rmse": 26215.57211973227,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 74834.56748947373,
+      "skill_score": null
+    },
+    "12": {
+      "n": 1,
+      "mae": 6751.580598420696,
+      "rmse": 6751.580598420696,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 42988.05768947373,
+      "skill_score": null
+    },
+    "13": {
+      "n": 1,
+      "mae": 29816.99641641474,
+      "rmse": 29816.99641641474,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 20751.417189473694,
+      "skill_score": null
+    },
+    "14": {
+      "n": 1,
+      "mae": 24286.89935463172,
+      "rmse": 24286.89935463172,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 26004.89138947369,
+      "skill_score": null
+    },
+    "15": {
+      "n": 1,
+      "mae": 23929.44823660463,
+      "rmse": 23929.44823660463,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 26111.72148947371,
+      "skill_score": null
+    },
+    "16": {
+      "n": 1,
+      "mae": 56844.627654389304,
+      "rmse": 56844.627654389304,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 0.0,
+      "persistence_mae": 6974.557010526303,
+      "skill_score": null
+    },
+    "17": {
+      "n": 1,
+      "mae": 25049.875973454793,
+      "rmse": 25049.875973454793,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 24805.13708947372,
+      "skill_score": null
+    },
+    "18": {
+      "n": 1,
+      "mae": 2934.360777680704,
+      "rmse": 2934.360777680704,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 52995.376789473696,
+      "skill_score": null
+    },
+    "19": {
+      "n": 1,
+      "mae": 13549.9856763024,
+      "rmse": 13549.9856763024,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 36564.593289473734,
+      "skill_score": null
+    },
+    "20": {
+      "n": 1,
+      "mae": 25451.323869617074,
+      "rmse": 25451.323869617074,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 24587.615989473707,
+      "skill_score": null
+    }
+  },
+  "by_capped": {
+    "clean": {
+      "n": 18,
+      "mae": 20014.147959916532,
+      "rmse": 24809.55449992447,
+      "mape": 4.201227691116119,
+      "r2": -0.056975683970738045,
+      "directional_accuracy": 0.9444444444444444,
+      "persistence_mae": 45858.70014619884,
+      "skill_score": 0.5635692268618417
+    },
+    "capped": {
+      "n": 2,
+      "mae": 19500.654772959737,
+      "rmse": 20388.379025122864,
+      "mape": null,
+      "r2": null,
+      "directional_accuracy": 1.0,
+      "persistence_mae": 30576.10463947372,
       "skill_score": null
     }
   }

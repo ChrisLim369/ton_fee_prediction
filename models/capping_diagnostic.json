@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-05-31T13:36:02Z",
+  "generated_at_utc": "2026-06-01T02:19:34Z",
   "coverage": {
-    "total_rows": 1512,
-    "capped_rows": 113,
-    "capped_fraction": 0.07473544973544974,
-    "capped_percent": 7.473544973544974,
+    "total_rows": 1532,
+    "capped_rows": 115,
+    "capped_fraction": 0.07506527415143603,
+    "capped_percent": 7.506527415143603,
     "onset_hour": "2026-05-26T12:00:00Z",
     "daily": [
       {
@@ -387,9 +387,15 @@
       },
       {
         "date": "2026-05-31",
-        "rows": 6,
+        "rows": 24,
         "capped_rows": 5,
-        "capped_frac": 0.8333333333333334
+        "capped_frac": 0.20833333333333334
+      },
+      {
+        "date": "2026-06-01",
+        "rows": 2,
+        "capped_rows": 2,
+        "capped_frac": 1.0
       }
     ],
     "known_distribution": {
@@ -406,25 +412,25 @@
     "first_hour": "2026-03-29T06:00:00Z",
     "last_hour": "2026-04-28T04:00:00Z"
   },
-  "matched_rows": 303,
+  "matched_rows": 307,
   "dropped_missing_target_cap_rows": 0,
   "segments": {
     "clean": {
-      "n": 190,
-      "mae": 46038.98661298698,
-      "rmse": 69913.00605012158,
-      "mape": 8.796870909048458,
-      "r2": 0.14628340219537295,
+      "n": 192,
+      "mae": 50580.23555148507,
+      "rmse": 121362.07750137108,
+      "mape": 9.660011792714746,
+      "r2": -1.6700075004583925,
       "directional_accuracy": null,
       "persistence_mae": null,
       "skill_score": null
     },
     "capped": {
-      "n": 113,
-      "mae": 101683.93173532715,
-      "rmse": 168492.73235170924,
-      "mape": 16.359092603365248,
-      "r2": 0.31760720887283345,
+      "n": 115,
+      "mae": 126381.38576836373,
+      "rmse": 244484.97087826862,
+      "mape": 17.174144889707872,
+      "r2": -0.4502361145138951,
       "directional_accuracy": null,
       "persistence_mae": null,
       "skill_score": null

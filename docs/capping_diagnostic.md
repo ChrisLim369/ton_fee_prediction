@@ -5,7 +5,7 @@ This diagnostic does not de-bias or change `target_next_hour_avg_fee`. It separa
 ## Coverage
 
 - Current checked-in hourly_features.csv has 1512 rows, 113 capped rows, capped share 7.5%.
-- Computed capped rows in current file: 113 / 1,512 (7.5%).
+- Computed capped rows in current file: 115 / 1,532 (7.5%).
 - Capped onset hour: 2026-05-26T12:00:00Z
 - Known distribution: before 2026-05-26 = 0%, 2026-05-26 = 50%, 2026-05-27 through 2026-05-30 = 100%, 2026-05-31 = 83%.
 
@@ -19,7 +19,6 @@ This diagnostic does not de-bias or change `target_next_hour_avg_fee`. It separa
 
 | Date | Rows | Capped rows | Capped fraction |
 | --- | ---: | ---: | ---: |
-| 2026-05-22 | 24 | 0 | 0.0% |
 | 2026-05-23 | 24 | 0 | 0.0% |
 | 2026-05-24 | 24 | 0 | 0.0% |
 | 2026-05-25 | 24 | 0 | 0.0% |
@@ -28,18 +27,19 @@ This diagnostic does not de-bias or change `target_next_hour_avg_fee`. It separa
 | 2026-05-28 | 24 | 24 | 100.0% |
 | 2026-05-29 | 24 | 24 | 100.0% |
 | 2026-05-30 | 24 | 24 | 100.0% |
-| 2026-05-31 | 6 | 5 | 83.3% |
+| 2026-05-31 | 24 | 5 | 20.8% |
+| 2026-06-01 | 2 | 2 | 100.0% |
 
 ## In-Sample Holdout Segments
 
 Target capping is defined as `is_capped_hour` at H+1, where H is the feature hour in `actual_vs_predicted.csv`.
-Matched holdout rows: 303
+Matched holdout rows: 307
 Dropped rows with missing H+1 cap label: 0
 
 | Segment | n | MAE | RMSE | MAPE | R2 | Directional accuracy | Persistence MAE | Skill score |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| clean | 190 | 46,038.99 | 69,913.01 | 8.80 | 0.1463 | N/A | N/A | N/A |
-| capped | 113 | 101,683.93 | 168,492.73 | 16.36 | 0.3176 | N/A | N/A | N/A |
+| clean | 192 | 50,580.24 | 121,362.08 | 9.66 | -1.6700 | N/A | N/A | N/A |
+| capped | 115 | 126,381.39 | 244,484.97 | 17.17 | -0.4502 | N/A | N/A | N/A |
 
 Small groups with n < 8 report MAPE/R2/skill as N/A. Directional accuracy is N/A here because the holdout file does not carry current-fee anchors.
 
