@@ -67,3 +67,23 @@ def test_recompute_hourly_features_uses_time_index_across_gaps() -> None:
     assert after_gap["fee_lag_24h"] == 8.0
     assert np.isnan(points_into_gap["fee_lag_24h"])
     assert later["fee_lag_24h"] == 11.0
+
+
+def test_recompute_hourly_features_keeps_larger_tx_count_duplicate_and_recomputes_cap() -> None:
+    hour = "2024-01-01T00:00:00Z"
+    low_count_capped = hourly_frame(pd.DatetimeIndex([pd.Timestamp(hour)]), [100.0])
+    low_count_capped["tx_count"] = 100
+    low_count_capped["collection_cap"] = 100
+    low_count_capped["is_capped_hour"] = 1
+    high_count_complete = hourly_frame(pd.DatetimeIndex([pd.Timestamp(hour)]), [200.0])
+    high_count_complete["tx_count"] = 120
+    high_count_complete["collection_cap"] = 200
+    high_count_complete["is_capped_hour"] = 1
+
+    result = recompute_hourly_derived_features(pd.concat([low_count_capped, high_count_complete], ignore_index=True))
+
+    row = result.iloc[0]
+    assert row["tx_count"] == 120
+    assert row["avg_total_fee"] == 200.0
+    assert row["collection_cap"] == 200
+    assert row["is_capped_hour"] == 0

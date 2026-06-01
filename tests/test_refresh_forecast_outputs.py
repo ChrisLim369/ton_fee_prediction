@@ -124,7 +124,7 @@ def test_update_metadata_degrades_on_hourly_history_regression(tmp_path: Path) -
     assert "hourly feature row count regressed" in payload["degradation_reason"]
 
 
-def test_merge_hourly_features_keeps_existing_row_on_overlap(tmp_path: Path, monkeypatch) -> None:
+def test_merge_hourly_features_keeps_larger_tx_count_row_on_overlap(tmp_path: Path, monkeypatch) -> None:
     hourly_path = tmp_path / "hourly_features.csv"
     existing = hourly_rows(
         [
@@ -154,6 +154,6 @@ def test_merge_hourly_features_keeps_existing_row_on_overlap(tmp_path: Path, mon
     assert status["previous_hourly_rows"] == 2
     assert status["previous_latest_hour"] == "2026-05-31T01:00:00Z"
     assert status["hourly_rows"] == 3
-    assert overlap["avg_total_fee"] == 200.0
-    assert overlap["is_capped_hour"] == 0
+    assert overlap["avg_total_fee"] == 999.0
+    assert overlap["is_capped_hour"] == 1
     assert new_hour["avg_total_fee"] == 300.0

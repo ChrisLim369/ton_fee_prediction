@@ -124,7 +124,29 @@ def recompute_hourly_derived_features(hourly_df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("hourly feature dataset must include an hour column")
 
     hourly["hour"] = pd.to_datetime(hourly["hour"], utc=True)
-    hourly = hourly.drop_duplicates(subset=["hour"], keep="last")
+    tx_count = (
+        pd.to_numeric(hourly["tx_count"], errors="coerce").fillna(-1)
+        if "tx_count" in hourly.columns
+        else pd.Series(-1, index=hourly.index)
+    )
+    capped = (
+        pd.to_numeric(hourly["is_capped_hour"], errors="coerce").fillna(0)
+        if "is_capped_hour" in hourly.columns
+        else pd.Series(0, index=hourly.index)
+    )
+    hourly = (
+        hourly.assign(_txc=tx_count, _cap=capped)
+        .sort_values(["hour", "_txc", "_cap"], ascending=[True, False, True])
+        .drop_duplicates(subset=["hour"], keep="first")
+        .drop(columns=["_txc", "_cap"])
+    )
+    if "collection_cap" in hourly.columns and "tx_count" in hourly.columns:
+        cap = pd.to_numeric(hourly["collection_cap"], errors="coerce")
+        tx = pd.to_numeric(hourly["tx_count"], errors="coerce")
+        has_cap = cap.notna()
+        if "is_capped_hour" not in hourly.columns:
+            hourly["is_capped_hour"] = 0
+        hourly.loc[has_cap, "is_capped_hour"] = (tx[has_cap] >= cap[has_cap]).astype(int)
     hourly = hourly.sort_values("hour").set_index("hour").asfreq("h")
     if "is_capped_hour" in hourly.columns:
         hourly["is_capped_hour"] = hourly["is_capped_hour"].fillna(0).astype(int)
@@ -290,4 +312,3 @@ def prepare_model_matrix(df: pd.DataFrame, feature_columns: list[str]) -> pd.Dat
     for column in feature_columns:
         x[column] = pd.to_numeric(x[column], errors="coerce")
     return x
-
