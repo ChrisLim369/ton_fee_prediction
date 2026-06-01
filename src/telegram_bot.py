@@ -556,7 +556,7 @@ class Dashboard:
             f"Known full raw rows: {format_count(metadata.get('final_rows'))}",
             f"Freshness: {status}",
             "",
-            "Telegram handlers are read-only. Data collection, feature refresh, forecasting, charts, and Netlify redeploys run in the scheduled GitHub Actions pipeline.",
+            "Telegram handlers are read-only. Data collection, feature refresh, forecasting, charts, and deploys run in the scheduled GitHub Actions pipeline.",
         ]
         if warnings:
             lines.extend(["", *[f"Warning: {warning}" for warning in warnings]])
