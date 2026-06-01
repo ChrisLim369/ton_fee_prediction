@@ -92,6 +92,23 @@ jobs:
             --workchain 0 \
             --stream
 
+      - name: Back up raw transaction snapshot to R2
+        continue-on-error: true
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          if [ -z "$R2_ACCOUNT_ID" ] || [ -z "$R2_BUCKET" ] || [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "R2 snapshot skipped because one or more R2 secrets are not configured."
+            exit 0
+          fi
+          TS=$(date -u +%Y%m%dT%H%M%SZ)
+          aws s3 cp raw_transactions.csv \
+            "s3://${R2_BUCKET}/raw/snapshots/raw_${TS}.csv" \
+            --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
       - name: Attach forecast prediction intervals
         run: python src/forecast_intervals.py
 
