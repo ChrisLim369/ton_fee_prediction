@@ -45,6 +45,7 @@ HOURLY_COLUMNS = [
     "hour",
     "tx_count",
     "is_capped_hour",
+    "collection_cap",
     "unique_accounts",
     "avg_total_fee",
     "median_total_fee",
@@ -258,7 +259,11 @@ RAW_DICTIONARY = {
 HOURLY_DICTIONARY = {
     "hour": "UTC hour bucket start timestamp.",
     "tx_count": "Number of raw transactions in the hourly bucket.",
-    "is_capped_hour": "1 when collection metadata indicates the hour hit a transaction page limit.",
+    "is_capped_hour": "1 when tx_count reached the observed per-run collection upper bound.",
+    "collection_cap": (
+        "Observed per-run collection upper bound for the hour (max_pages_cap*limit); NaN for legacy rows "
+        "collected before this was persisted."
+    ),
     "unique_accounts": "Number of unique account addresses in the hourly bucket.",
     "avg_total_fee": "Mean total_fees per transaction in nanoton.",
     "median_total_fee": "Median total_fees per transaction in nanoton.",
@@ -327,4 +332,3 @@ def resolve_path(path: str | Path) -> Path:
     if candidate.is_absolute():
         return candidate
     return PROJECT_ROOT / candidate
-

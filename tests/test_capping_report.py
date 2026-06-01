@@ -95,6 +95,6 @@ def test_capping_report_outputs_warnings_and_json(tmp_path) -> None:
     assert "7.5%" in report
     assert "Confounding" in report
     assert "Under-flag" in report
-    assert "higher `max_pages`" in report
+    assert "R2 raw replay" in report
     assert saved["segments"]["clean"]["persistence_mae"] is None
     assert saved["segments"]["capped"]["skill_score"] is None

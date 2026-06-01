@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-06-01T02:19:34Z",
+  "generated_at_utc": "2026-06-01T07:18:10Z",
   "coverage": {
     "total_rows": 1532,
     "capped_rows": 115,
@@ -405,7 +405,7 @@
       "2026_05_31": "83%"
     },
     "confounding_warning": "Capped rows are concentrated in a recent continuous block, so capped vs clean differences cannot be attributed to truncation bias alone; time/regime effects are confounded.",
-    "under_flag_warning": "is_capped_hour reflects the latest collection run metadata only. Earlier capped-looking plateaus such as 2026-03-29 through 2026-04-27 with tx_count exactly 5000 can be under-flagged, but this report does not auto-relabel them because historical per-run cap metadata cannot be restored reliably."
+    "under_flag_warning": "Per-run collection caps are now persisted as collection_cap, and new rows are flagged with tx_count>=collection_cap. Legacy rows with missing collection_cap can remain under-flagged until an R2 raw replay rebuilds those hours from archived raw data; this report does not auto-relabel them."
   },
   "plateau": {
     "tx_count_5000_underflagged_rows": 719,
@@ -417,20 +417,20 @@
   "segments": {
     "clean": {
       "n": 192,
-      "mae": 50580.23555148507,
-      "rmse": 121362.07750137108,
-      "mape": 9.660011792714746,
-      "r2": -1.6700075004583925,
+      "mae": 44550.379336438935,
+      "rmse": 66117.06216887034,
+      "mape": 8.606710907663558,
+      "r2": 0.2075468921656871,
       "directional_accuracy": null,
       "persistence_mae": null,
       "skill_score": null
     },
     "capped": {
       "n": 115,
-      "mae": 126381.38576836373,
-      "rmse": 244484.97087826862,
-      "mape": 17.174144889707872,
-      "r2": -0.4502361145138951,
+      "mae": 89227.3516786439,
+      "rmse": 153476.65180087584,
+      "mape": 13.956806967313314,
+      "r2": 0.42849634243327894,
       "directional_accuracy": null,
       "persistence_mae": null,
       "skill_score": null
@@ -438,7 +438,7 @@
   },
   "warnings": {
     "confounding": "Capped rows are concentrated in a recent continuous block, so capped vs clean differences cannot be attributed to truncation bias alone; time/regime effects are confounded.",
-    "under_flag": "is_capped_hour reflects the latest collection run metadata only. Earlier capped-looking plateaus such as 2026-03-29 through 2026-04-27 with tx_count exactly 5000 can be under-flagged, but this report does not auto-relabel them because historical per-run cap metadata cannot be restored reliably."
+    "under_flag": "Per-run collection caps are now persisted as collection_cap, and new rows are flagged with tx_count>=collection_cap. Legacy rows with missing collection_cap can remain under-flagged until an R2 raw replay rebuilds those hours from archived raw data; this report does not auto-relabel them."
   },
-  "future_work": "Recollect with higher max_pages and persist per-run cap metadata."
+  "future_work": "Use R2 raw replay to rebuild legacy rows with persisted collection_cap labels."
 }

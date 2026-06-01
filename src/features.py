@@ -55,13 +55,16 @@ def read_raw_transactions(path: Path) -> pd.DataFrame:
     return df
 
 
-def capped_hours_from_metadata(collection_metadata: dict[str, Any] | None) -> set[pd.Timestamp]:
+def collection_cap_from_metadata(collection_metadata: dict[str, Any] | None) -> int | None:
     if not collection_metadata:
-        return set()
-    return {
-        pd.Timestamp(hour).tz_convert("UTC")
-        for hour in collection_metadata.get("capped_hours_utc", [])
-    }
+        return None
+    limit = collection_metadata.get("limit")
+    max_pages_cap = collection_metadata.get("max_pages_cap")
+    if limit is None:
+        return None
+    if max_pages_cap is None:
+        return int(limit)
+    return int(max_pages_cap) * int(limit)
 
 
 def build_hourly_features(
@@ -99,15 +102,12 @@ def build_hourly_features(
         avg_transaction_value=("transaction_value", "mean"),
         total_transaction_value=("transaction_value", "sum"),
     ).reset_index()
-    capped_hours = capped_hours_from_metadata(collection_metadata)
-    if capped_hours:
-        hourly["is_capped_hour"] = hourly["hour"].isin(capped_hours).astype(int)
+    collection_cap = collection_cap_from_metadata(collection_metadata)
+    hourly["collection_cap"] = collection_cap if collection_cap is not None else pd.NA
+    if collection_cap is not None:
+        hourly["is_capped_hour"] = (hourly["tx_count"] >= collection_cap).astype(int)
     else:
-        page_limit = (collection_metadata or {}).get("limit")
-        if page_limit:
-            hourly["is_capped_hour"] = (hourly["tx_count"] >= int(page_limit)).astype(int)
-        else:
-            hourly["is_capped_hour"] = 0
+        hourly["is_capped_hour"] = 0
 
     return recompute_hourly_derived_features(hourly)
 
@@ -290,5 +290,4 @@ def prepare_model_matrix(df: pd.DataFrame, feature_columns: list[str]) -> pd.Dat
     for column in feature_columns:
         x[column] = pd.to_numeric(x[column], errors="coerce")
     return x
-
 

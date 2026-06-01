@@ -24,7 +24,10 @@ def build(args: argparse.Namespace) -> dict[str, object]:
     metadata_path = resolve_path(args.metadata)
 
     raw_df = read_raw_transactions(raw_path)
-    hourly_df = build_hourly_features(raw_df)
+    collection_metadata = None
+    if metadata_path.exists():
+        collection_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    hourly_df = build_hourly_features(raw_df, collection_metadata)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     hourly_df.to_csv(output_path, index=False)

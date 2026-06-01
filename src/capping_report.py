@@ -30,9 +30,9 @@ CONFOUNDING_WARNING = (
     "attributed to truncation bias alone; time/regime effects are confounded."
 )
 UNDER_FLAG_WARNING = (
-    "is_capped_hour reflects the latest collection run metadata only. Earlier capped-looking plateaus such as "
-    "2026-03-29 through 2026-04-27 with tx_count exactly 5000 can be under-flagged, but this report does not "
-    "auto-relabel them because historical per-run cap metadata cannot be restored reliably."
+    "Per-run collection caps are now persisted as collection_cap, and new rows are flagged with "
+    "tx_count>=collection_cap. Legacy rows with missing collection_cap can remain under-flagged until an R2 "
+    "raw replay rebuilds those hours from archived raw data; this report does not auto-relabel them."
 )
 
 
@@ -272,8 +272,9 @@ def write_report(path: Path, payload: dict[str, Any]) -> None:
             "",
             "## Future Work",
             "",
-            "Real de-biasing requires recollecting affected windows with higher `max_pages` and persisting per-run "
-            "cap metadata so historical cap labels can be trusted.",
+            "New rows persist per-run caps in `collection_cap` and use `tx_count>=collection_cap` for capping. "
+            "Legacy rows where `collection_cap` is missing should be corrected by R2 raw replay rather than "
+            "heuristic relabeling.",
             "",
         ]
     )
@@ -297,7 +298,7 @@ def build_payload(hourly_path: Path, holdout_path: Path) -> dict[str, Any]:
             "confounding": CONFOUNDING_WARNING,
             "under_flag": UNDER_FLAG_WARNING,
         },
-        "future_work": "Recollect with higher max_pages and persist per-run cap metadata.",
+        "future_work": "Use R2 raw replay to rebuild legacy rows with persisted collection_cap labels.",
     }
 
 
